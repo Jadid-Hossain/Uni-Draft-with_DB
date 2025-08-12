@@ -102,7 +102,27 @@ const StudentManagement: React.FC = () => {
   };
   // Inside StudentManagement component, after import statements but before return
   const [notificationMessage, setNotificationMessage] = useState<string>("");
+  const [selectedNotificationRecipients, setSelectedNotificationRecipients] =
+    useState<string[]>([]);
+  const updateNotificationForSelected = async (
+    message: string,
+    studentIds: string[]
+  ) => {
+    if (studentIds.length === 0) {
+      throw new Error("No recipients selected");
+    }
 
+    // Assuming your table is "student_data" and id column is "id"
+    const { data, error } = await supabase
+      .from("student_data")
+      .update({ notification: message })
+      .in("id", studentIds);
+
+    if (error) throw new Error(error.message);
+    return data;
+  };
+
+  // Removed duplicate handleSendNotification function
   // Add notification options
   const notificationOptions = [
     "New Event",
@@ -283,29 +303,104 @@ const StudentManagement: React.FC = () => {
             <Plus className="h-4 w-4 mr-2" />
             Add Student
           </Button>
-
-          {/* Notification Select */}
-          <select
-            className="border rounded px-3 py-1 text-sm"
-            value={notificationMessage}
-            onChange={(e) => setNotificationMessage(e.target.value)}
-          >
-            <option value="">Select Notification</option>
-            {notificationOptions.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-
-          <Button
-            variant="secondary"
-            onClick={handleSendNotification}
-            disabled={!notificationMessage}
-          >
-            <Users className="h-4 w-4 mr-2" />
-            Send Notification
-          </Button>
+          {/* Notification UI for selected/all students */}
+          <div className="flex flex-col gap-2 items-start">
+            <select
+              className="border rounded px-3 py-1 text-sm"
+              value={notificationMessage}
+              onChange={(e) => setNotificationMessage(e.target.value)}
+            >
+              <option value="">Select Notification</option>
+              {notificationOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                onClick={async () => {
+                  if (
+                    !notificationMessage ||
+                    selectedNotificationRecipients.length === 0
+                  ) {
+                    toast({
+                      title: "Select Recipients and Notification",
+                      description:
+                        "Please select at least one recipient and a notification message.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  try {
+                    await updateNotificationForSelected(
+                      notificationMessage,
+                      selectedNotificationRecipients
+                    );
+                    toast({
+                      title: "Notification Sent",
+                      description: `Notification "${notificationMessage}" sent to selected students.`,
+                    });
+                    setNotificationMessage("");
+                    setSelectedNotificationRecipients([]);
+                  } catch (error) {
+                    toast({
+                      title: "Error Sending Notification",
+                      description:
+                        error instanceof Error
+                          ? error.message
+                          : "Failed to send notification.",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                disabled={
+                  !notificationMessage ||
+                  selectedNotificationRecipients.length === 0
+                }
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Send to Selected
+              </Button>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  if (!notificationMessage) {
+                    toast({
+                      title: "No Notification Selected",
+                      description:
+                        "Please select a notification message to send.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  try {
+                    await updateNotificationForAll(notificationMessage);
+                    toast({
+                      title: "Notification Sent",
+                      description: `Notification "${notificationMessage}" sent to all students.`,
+                    });
+                    setNotificationMessage("");
+                    setSelectedNotificationRecipients([]);
+                  } catch (error) {
+                    toast({
+                      title: "Error Sending Notification",
+                      description:
+                        error instanceof Error
+                          ? error.message
+                          : "Failed to send notification.",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                disabled={!notificationMessage}
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Send to All
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -369,6 +464,37 @@ const StudentManagement: React.FC = () => {
           </Card>
         </div>
       )}
+      {/* Multi-select for choosing students to notify */}
+      <div className="max-h-48 overflow-auto border rounded px-3 py-1 text-sm w-72 mb-4">
+        <p className="font-semibold mb-1">Select Recipients:</p>
+        {students.length === 0 ? (
+          <p className="text-muted-foreground">No students available</p>
+        ) : (
+          students.map((student) => (
+            <label
+              key={student.id}
+              className="flex items-center gap-2 mb-1 cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                value={student.id}
+                checked={selectedNotificationRecipients.includes(student.id)}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedNotificationRecipients((prev) =>
+                    e.target.checked
+                      ? [...prev, id]
+                      : prev.filter((sid) => sid !== id)
+                  );
+                }}
+              />
+              <span>
+                {student.full_name} ({student.student_id})
+              </span>
+            </label>
+          ))
+        )}
+      </div>
 
       {/* Filters and Search */}
       <Card>
@@ -475,7 +601,14 @@ const StudentManagement: React.FC = () => {
                         {student.student_id}
                       </TableCell>
                       <TableCell>{student.full_name}</TableCell>
-                      <TableCell>{student.email}</TableCell>
+                      <TableCell>
+                        <a
+                          href={`mailto:${student.email}`}
+                          className="text-inherit no-underline"
+                        >
+                          {student.email}
+                        </a>
+                      </TableCell>
                       <TableCell>{student.department}</TableCell>
                       <TableCell>{student.blood_group || "N/A"}</TableCell>
                       <TableCell>{getStatusBadge(student.status)}</TableCell>
