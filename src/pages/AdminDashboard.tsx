@@ -18,11 +18,13 @@ import {
   BarChart3,
   Settings,
   UserCheck,
-  Clock
+  Clock,
+  GraduationCap
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import StudentManagement from "@/components/StudentManagement";
 
 const AdminDashboard = () => {
   const { user } = useAuth();
@@ -89,8 +91,9 @@ const AdminDashboard = () => {
           </div>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="students">Students</TabsTrigger>
               <TabsTrigger value="users">Users</TabsTrigger>
               <TabsTrigger value="clubs">Clubs</TabsTrigger>
               <TabsTrigger value="events">Events</TabsTrigger>
@@ -206,9 +209,13 @@ const AdminDashboard = () => {
                         <Calendar className="h-5 w-5" />
                         <span className="text-sm">Create Event</span>
                       </Button>
-                      <Button variant="outline" className="h-20 flex-col space-y-2">
-                        <Users className="h-5 w-5" />
-                        <span className="text-sm">Manage Users</span>
+                      <Button 
+                        variant="outline" 
+                        className="h-20 flex-col space-y-2"
+                        onClick={() => setActiveTab("students")}
+                      >
+                        <GraduationCap className="h-5 w-5" />
+                        <span className="text-sm">Manage Students</span>
                       </Button>
                       <Button variant="outline" className="h-20 flex-col space-y-2">
                         <BarChart3 className="h-5 w-5" />
@@ -218,6 +225,11 @@ const AdminDashboard = () => {
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
+
+            {/* Students Tab */}
+            <TabsContent value="students" className="space-y-6">
+              <StudentManagement />
             </TabsContent>
 
             {/* Users Tab */}

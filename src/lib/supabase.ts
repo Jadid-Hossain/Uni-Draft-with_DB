@@ -7,27 +7,39 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Please check your .env file.')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Create Supabase client for database operations only (no auth)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: false, // Disable auth session persistence
+    autoRefreshToken: false, // Disable auto token refresh
+  }
+})
 
 // Types for our database schema
 export interface Profile {
   id: string
-  full_name: string | null
-  department: string | null
-  student_id: string | null
   avatar_url: string | null
+  bio: string | null
   created_at: string
   updated_at: string
 }
 
-export interface UserRole {
-  id: string
-  user_id: string
-  role: AppRole
-  created_at: string
-}
-
 export type AppRole = 'admin' | 'faculty' | 'student'
+
+export interface ManualUser {
+  id: string
+  email: string
+  full_name: string
+  department: string
+  student_id: string | null
+  employee_id: string | null
+  role: AppRole
+  is_active: boolean
+  email_verified: boolean
+  created_at: string
+  updated_at: string
+  last_login_at: string | null
+}
 
 export interface Club {
   id: string
@@ -55,9 +67,13 @@ export interface Event {
   updated_at: string
 }
 
+// Legacy interface for compatibility - use ManualUser for new code
 export interface User {
   id: string
   email: string
-  profile: Profile | null
-  roles: AppRole[]
+  full_name: string
+  department: string
+  student_id?: string
+  employee_id?: string
+  role: AppRole
 }
