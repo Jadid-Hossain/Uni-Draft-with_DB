@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import emailjs from "emailjs-com";
 import {
   Plus,
   Search,
@@ -87,6 +88,11 @@ const StudentManagement: React.FC = () => {
   );
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
+  // State for AI Email Generator
+  const [emailPrompt, setEmailPrompt] = useState("");
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [generatedEmail, setGeneratedEmail] = useState("");
+
   // Get unique departments from students
   const departments = Array.from(
     new Set(students.map((s) => s.department))
@@ -100,6 +106,104 @@ const StudentManagement: React.FC = () => {
       await refetch();
     }
   };
+
+  const handleGenerateEmail = async () => {
+    if (!emailPrompt.trim()) {
+      toast({
+        title: "Prompt Required",
+        description: "Please enter what you want the email to be about.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setEmailLoading(true);
+    setGeneratedEmail("");
+    try {
+      const { CohereClientV2 } = await import("cohere-ai");
+      const cohere = new CohereClientV2({
+        token: "WXLRaDQGGcSLekKzhkd3S653Iwo4PX6LfU3wUeAF", // ⚠ Do not expose in production
+      });
+
+      const response = await cohere.chat({
+        model: "command-a-03-2025",
+        messages: [
+          {
+            role: "user",
+            content: `Write a professional email for this scenario: ${emailPrompt}`,
+          },
+        ],
+      });
+
+      console.log("Full Cohere response:", response);
+
+      setGeneratedEmail(
+        (response.message?.content?.[0]?.text as string) ||
+          (response.text as string) ||
+          (response.generations?.[0]?.text as string) ||
+          "No email generated."
+      );
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to generate email.",
+        variant: "destructive",
+      });
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const handleSendEmailToAllStudents = async () => {
+    if (!generatedEmail) {
+      toast({
+        title: "No Email Content",
+        description: "Please generate the email content first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const student of students) {
+      try {
+        await emailjs.send(
+          "service_w0yrqzx", // Your service ID
+          "template_nu1blhd", // Your template ID
+          {
+            to_name: student.full_name, // match your template variables
+            to_email: student.email, // match your template variables
+            message: generatedEmail,
+          },
+          "5z5hG6uOfJfySVK-U" // Your public key
+        );
+
+        console.log(`✅ Email sent to ${student.full_name} (${student.email})`);
+        successCount++;
+      } catch (err) {
+        const errorMessage = err?.text || JSON.stringify(err);
+        console.error(
+          `❌ Failed for ${student.full_name} (${student.email}):`,
+          errorMessage
+        );
+        failCount++;
+      }
+    }
+
+    toast({
+      title: "Email Sending Complete",
+      description: `${successCount} sent, ${failCount} failed.`,
+      variant: failCount > 0 ? "destructive" : "default",
+    });
+
+    toast({
+      title: "Emails Sent",
+      description: "Email has been sent to all students' inboxes.",
+    });
+  };
+
   // Inside StudentManagement component, after import statements but before return
   const [notificationMessage, setNotificationMessage] = useState<string>("");
   const [selectedNotificationRecipients, setSelectedNotificationRecipients] =
@@ -403,7 +507,44 @@ const StudentManagement: React.FC = () => {
           </div>
         </div>
       </div>
-
+      {/* AI Email Generator */}
+      <div className="my-6 p-4 border rounded bg-muted">
+        <h2 className="text-lg font-semibold mb-2">AI Email Generator</h2>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className="block text-sm mb-1">
+              Describe the email you want:
+            </label>
+            <Input
+              placeholder="e.g. Invite students to the new club event"
+              value={emailPrompt}
+              onChange={(e) => setEmailPrompt(e.target.value)}
+              disabled={emailLoading}
+            />
+          </div>
+          <Button
+            className="mt-2 sm:mt-0 sm:ml-2"
+            onClick={handleGenerateEmail}
+            disabled={emailLoading}
+          >
+            {emailLoading ? "Generating..." : "Generate Email"}
+          </Button>
+        </div>
+        {generatedEmail && (
+          <div className="mt-4 p-3 bg-white border rounded text-sm whitespace-pre-line">
+            <strong>Generated Email:</strong>
+            <div className="mt-2">{generatedEmail}</div>
+          </div>
+        )}
+      </div>
+      <Button
+        variant="secondary"
+        className="mt-2"
+        onClick={handleSendEmailToAllStudents}
+        disabled={!generatedEmail}
+      >
+        Send Email to All Students
+      </Button>
       {/* Statistics Cards */}
       {statistics && !statsLoading && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -495,7 +636,6 @@ const StudentManagement: React.FC = () => {
           ))
         )}
       </div>
-
       {/* Filters and Search */}
       <Card>
         <CardContent className="p-6">
@@ -553,14 +693,12 @@ const StudentManagement: React.FC = () => {
           </div>
         </CardContent>
       </Card>
-
       {/* Error Display */}
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-
       {/* Students Table */}
       <Card>
         <CardHeader>
@@ -650,7 +788,6 @@ const StudentManagement: React.FC = () => {
           )}
         </CardContent>
       </Card>
-
       {/* Add Student Form */}
       {showAddForm && (
         <AddStudentForm
@@ -661,7 +798,6 @@ const StudentManagement: React.FC = () => {
           }}
         />
       )}
-
       {/* Student Details Dialog */}
       <Dialog
         open={!!selectedStudent}
