@@ -77,3 +77,21 @@ export interface User {
   employee_id?: string
   role: AppRole
 }
+
+export interface Resource {
+  id: string
+  title: string
+  description: string | null
+  bucket_id: string
+  file_path: string
+  uploaded_by: string
+  created_at: string
+  file_size?: number
+  file_type?: string
+  category?: string
+  subject?: string
+  course_code?: string
+  tags?: string[]
+  download_count?: number
+  is_approved?: boolean
+}

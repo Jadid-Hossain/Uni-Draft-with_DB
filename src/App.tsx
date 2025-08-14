@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Clubs from "./pages/Clubs";
 import Events from "./pages/Events";
@@ -16,6 +17,7 @@ import Chat from "./pages/Chat";
 import JoinClub from "./pages/JoinClub";
 import EventRegistration from "./pages/EventRegistration";
 import Resources from "./pages/Resources";
+import LearnMore from "./pages/LearnMore";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,17 +31,57 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/clubs" element={<Clubs />} />
-            <Route path="/events" element={<Events />} />
-            <Route path="/forum" element={<Forum />} />
             <Route path="/signin" element={<SignIn />} />
             <Route path="/signup" element={<SignUp />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/chat" element={<Chat />} />
-            <Route path="/join-club/:id" element={<JoinClub />} />
-            <Route path="/event-registration/:id" element={<EventRegistration />} />
-            <Route path="/resources" element={<Resources />} />
+            
+            {/* Protected Routes - Require Authentication */}
+            <Route path="/clubs" element={
+              <ProtectedRoute>
+                <Clubs />
+              </ProtectedRoute>
+            } />
+            <Route path="/events" element={
+              <ProtectedRoute>
+                <Events />
+              </ProtectedRoute>
+            } />
+            <Route path="/forum" element={
+              <ProtectedRoute>
+                <Forum />
+              </ProtectedRoute>
+            } />
+            <Route path="/resources" element={
+              <ProtectedRoute>
+                <Resources />
+              </ProtectedRoute>
+            } />
+            <Route path="/learn-more" element={<LearnMore />} />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/chat" element={
+              <ProtectedRoute>
+                <Chat />
+              </ProtectedRoute>
+            } />
+            <Route path="/join-club/:id" element={
+              <ProtectedRoute>
+                <JoinClub />
+              </ProtectedRoute>
+            } />
+            <Route path="/event-registration/:id" element={
+              <ProtectedRoute>
+                <EventRegistration />
+              </ProtectedRoute>
+            } />
+            
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

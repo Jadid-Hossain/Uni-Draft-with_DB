@@ -1,36 +1,16 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Users, Calendar, MessageSquare, Trophy, BookOpen, Sparkles } from "lucide-react";
+import { ArrowRight, Users, Calendar, Trophy, Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const HeroSection = () => {
   const stats = [
-    { icon: Users, label: "BRACU Students", value: "15,000+" },
-    { icon: Users, label: "Student Clubs", value: "50+" },
-    { icon: Calendar, label: "Campus Events", value: "200+" },
-    { icon: Trophy, label: "Academic Programs", value: "45+" },
+    { icon: Users, label: "BRACU Students", value: "22,000+" },
+    { icon: Users, label: "Student Clubs", value: "30+" },
+    { icon: Calendar, label: "Campus Events", value: "50+" },
+    { icon: Trophy, label: "Academic Programs", value: "30+" },
   ];
 
-  const features = [
-    {
-      icon: Users,
-      title: "Join Clubs",
-      description: "Discover and join student organizations at BRAC University that match your interests and passions."
-    },
-    {
-      icon: Calendar,
-      title: "Campus Events",
-      description: "Stay updated with BRACU campus events, competitions, and important academic deadlines."
-    },
-    {
-      icon: MessageSquare,
-      title: "Connect & Discuss",
-      description: "Engage in meaningful discussions with fellow BRACU students through university forums."
-    },
-    {
-      icon: BookOpen,
-      title: "Academic Resources",
-      description: "Access BRAC University course materials, career opportunities, and educational resources."
-    }
-  ];
+
 
   return (
     <section className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5 pt-16">
@@ -55,14 +35,14 @@ const HeroSection = () => {
             and participate in the vibrant BRACU community.
           </p>
 
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16 animate-fade-in">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-1
+          {/* CTA Buttons */}6 animate-fade-in">
             <Button variant="hero" size="xl" className="group">
-              Get Started Today
+              Join the Community Today
               <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
             </Button>
-            <Button variant="outline" size="xl">
-              Learn More
+            <Button variant="outline" size="xl" asChild>
+              <Link to="/learn-more">Learn More</Link>
             </Button>
           </div>
 
@@ -84,33 +64,7 @@ const HeroSection = () => {
           </div>
         </div>
 
-        {/* Features Grid */}
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Your BRACU Campus Connection
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Stay connected with campus life at BRAC University through clubs, events, and academic resources.
-            </p>
-          </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {features.map((feature, index) => (
-              <div 
-                key={feature.title}
-                className="bg-gradient-card rounded-xl p-6 shadow-card hover:shadow-lg transition-all duration-200 hover:scale-105 animate-fade-in"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <div className="bg-gradient-primary p-3 rounded-lg inline-flex mb-4">
-                  <feature.icon className="h-6 w-6 text-white" />
-                </div>
-                <h3 className="text-xl font-semibold text-foreground mb-3">{feature.title}</h3>
-                <p className="text-muted-foreground leading-relaxed">{feature.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </section>
   );
