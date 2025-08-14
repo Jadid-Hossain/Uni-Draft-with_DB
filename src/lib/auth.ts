@@ -9,6 +9,7 @@ export interface User {
   student_id?: string;
   employee_id?: string;
   role: AppRole;
+  user_status: 'pending' | 'active' | 'suspended' | 'rejected';
   is_active: boolean;
   email_verified: boolean;
 }
@@ -124,7 +125,7 @@ class AuthService {
     try {
       // Map role from UI to database
       const role: AppRole = userData.role === 'university-staff' ? 'faculty' 
-                          : userData.role === 'club-admin' ? 'admin' 
+                          : userData.role === 'faculty' ? 'faculty'
                           : 'student';
 
       const { data, error } = await supabase.rpc('create_user', {

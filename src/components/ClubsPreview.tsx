@@ -1,20 +1,20 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, MapPin, Calendar, ArrowRight, Star } from "lucide-react";
+import { Users, MapPin, Calendar, ArrowRight } from "lucide-react";
 
 const ClubsPreview = () => {
   const featuredClubs = [
     {
       id: 1,
-      name: "Computer Science Society",
+      name: "Computer Club",
       description: "Building the future through code, innovation, and collaboration.",
       members: 245,
       category: "Academic",
       location: "Tech Building",
       nextEvent: "Hackathon 2024",
       eventDate: "Dec 15",
-      rating: 4.8,
+
       image: "bg-gradient-to-br from-blue-500 to-purple-600"
     },
     {
@@ -26,7 +26,7 @@ const ClubsPreview = () => {
       location: "Arts Center",
       nextEvent: "Photo Walk",
       eventDate: "Dec 8",
-      rating: 4.6,
+
       image: "bg-gradient-to-br from-orange-500 to-pink-600"
     },
     {
@@ -38,7 +38,7 @@ const ClubsPreview = () => {
       location: "Main Hall",
       nextEvent: "Inter-Uni Debate",
       eventDate: "Dec 20",
-      rating: 4.9,
+
       image: "bg-gradient-to-br from-green-500 to-teal-600"
     },
     {
@@ -50,7 +50,7 @@ const ClubsPreview = () => {
       location: "Music Wing",
       nextEvent: "Winter Concert",
       eventDate: "Dec 18",
-      rating: 4.7,
+
       image: "bg-gradient-to-br from-purple-500 to-indigo-600"
     }
   ];
@@ -66,7 +66,7 @@ const ClubsPreview = () => {
             Discover Student Clubs
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-            Find your community among 150+ active student organizations. From academic societies to creative clubs, there's something for everyone.
+            Find your community among 30+ active student organizations. From academic societies to creative clubs, there's something for everyone.
           </p>
 
           {/* Category Filter */}
@@ -93,10 +93,6 @@ const ClubsPreview = () => {
             >
               {/* Club Image/Header */}
               <div className={`h-32 ${club.image} relative`}>
-                <div className="absolute top-3 right-3 bg-black/20 backdrop-blur-sm rounded-full px-2 py-1 flex items-center space-x-1">
-                  <Star className="h-3 w-3 text-yellow-400 fill-current" />
-                  <span className="text-white text-xs font-medium">{club.rating}</span>
-                </div>
                 <Badge 
                   className="absolute bottom-3 left-3 bg-white/20 backdrop-blur-sm text-white border-white/30"
                 >

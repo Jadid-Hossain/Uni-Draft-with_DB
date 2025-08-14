@@ -60,11 +60,11 @@ const SignIn = () => {
         <div className="text-center mb-8">
           <Link to="/" className="inline-block">
             <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              BRACU Portal
+              BRACU Student Activity Portal
             </h1>
           </Link>
           <p className="text-muted-foreground mt-2">
-            Welcome back to BRAC University Student Portal
+            Welcome back to BRAC University Student Activity Portal
           </p>
         </div>
 
@@ -151,7 +151,7 @@ const SignIn = () => {
             </div>
 
             {/* Social Sign In */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <Button variant="outline" type="button">
                 <svg className="h-4 w-4 mr-2" viewBox="0 0 24 24">
                   <path
@@ -173,12 +173,7 @@ const SignIn = () => {
                 </svg>
                 Google
               </Button>
-              <Button variant="outline" type="button">
-                <svg className="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-                </svg>
-                Facebook
-              </Button>
+
             </div>
           </form>
 
@@ -196,16 +191,7 @@ const SignIn = () => {
           </div>
         </Card>
 
-        {/* Demo Credentials */}
-        <Card className="p-4 border border-blue-200 bg-blue-50/50 mt-6">
-          <h3 className="font-semibold text-sm text-blue-900 mb-2">🎓 BRAC University Portal</h3>
-          <div className="text-xs text-blue-800 space-y-1">
-            <p><strong>Students:</strong> Use your BRACU email and password</p>
-            <p><strong>Staff & Faculty:</strong> Use your university credentials</p>
-            <p><strong>New Users:</strong> Register with your BRACU email address</p>
-            <p className="text-blue-600">Official student activity portal for BRAC University</p>
-          </div>
-        </Card>
+
 
         {/* Footer */}
         <div className="text-center mt-8">
