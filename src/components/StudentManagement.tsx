@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import emailjs from "emailjs-com";
 import {
   Plus,
   Search,
@@ -87,6 +88,11 @@ const StudentManagement: React.FC = () => {
   );
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
+  // State for AI Email Generator
+  const [emailPrompt, setEmailPrompt] = useState("");
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [generatedEmail, setGeneratedEmail] = useState("");
+
   // Get unique departments from students
   const departments = Array.from(
     new Set(students.map((s) => s.department))
@@ -100,9 +106,127 @@ const StudentManagement: React.FC = () => {
       await refetch();
     }
   };
+
+  const handleGenerateEmail = async () => {
+    if (!emailPrompt.trim()) {
+      toast({
+        title: "Prompt Required",
+        description: "Please enter what you want the email to be about.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setEmailLoading(true);
+    setGeneratedEmail("");
+    try {
+      const { CohereClientV2 } = await import("cohere-ai");
+      const cohere = new CohereClientV2({
+        token: "WXLRaDQGGcSLekKzhkd3S653Iwo4PX6LfU3wUeAF", // ⚠ Do not expose in production
+      });
+
+      const response = await cohere.chat({
+        model: "command-a-03-2025",
+        messages: [
+          {
+            role: "user",
+            content: `Write a professional email for this scenario: ${emailPrompt}`,
+          },
+        ],
+      });
+
+      console.log("Full Cohere response:", response);
+
+      setGeneratedEmail(
+        (response.message?.content?.[0]?.text as string) ||
+          (response.text as string) ||
+          (response.generations?.[0]?.text as string) ||
+          "No email generated."
+      );
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Error",
+        description: "Failed to generate email.",
+        variant: "destructive",
+      });
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const handleSendEmailToAllStudents = async () => {
+    if (!generatedEmail) {
+      toast({
+        title: "No Email Content",
+        description: "Please generate the email content first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const student of students) {
+      try {
+        await emailjs.send(
+          "service_w0yrqzx", // Your service ID
+          "template_nu1blhd", // Your template ID
+          {
+            to_name: student.full_name, // match your template variables
+            to_email: student.email, // match your template variables
+            message: generatedEmail,
+          },
+          "5z5hG6uOfJfySVK-U" // Your public key
+        );
+
+        console.log(`✅ Email sent to ${student.full_name} (${student.email})`);
+        successCount++;
+      } catch (err) {
+        const errorMessage = err?.text || JSON.stringify(err);
+        console.error(
+          `❌ Failed for ${student.full_name} (${student.email}):`,
+          errorMessage
+        );
+        failCount++;
+      }
+    }
+
+    toast({
+      title: "Email Sending Complete",
+      description: `${successCount} sent, ${failCount} failed.`,
+      variant: failCount > 0 ? "destructive" : "default",
+    });
+
+    toast({
+      title: "Emails Sent",
+      description: "Email has been sent to all students' inboxes.",
+    });
+  };
+
   // Inside StudentManagement component, after import statements but before return
   const [notificationMessage, setNotificationMessage] = useState<string>("");
+  const [selectedNotificationRecipients, setSelectedNotificationRecipients] =
+    useState<string[]>([]);
+  const updateNotificationForSelected = async (
+    message: string,
+    studentIds: string[]
+  ) => {
+    if (studentIds.length === 0) {
+      throw new Error("No recipients selected");
+    }
 
+    // Assuming your table is "student_data" and id column is "id"
+    const { data, error } = await supabase
+      .from("student_data")
+      .update({ notification: message })
+      .in("id", studentIds);
+
+    if (error) throw new Error(error.message);
+    return data;
+  };
+
+  // Removed duplicate handleSendNotification function
   // Add notification options
   const notificationOptions = [
     "New Event",
@@ -283,32 +407,144 @@ const StudentManagement: React.FC = () => {
             <Plus className="h-4 w-4 mr-2" />
             Add Student
           </Button>
-
-          {/* Notification Select */}
-          <select
-            className="border rounded px-3 py-1 text-sm"
-            value={notificationMessage}
-            onChange={(e) => setNotificationMessage(e.target.value)}
-          >
-            <option value="">Select Notification</option>
-            {notificationOptions.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-
-          <Button
-            variant="secondary"
-            onClick={handleSendNotification}
-            disabled={!notificationMessage}
-          >
-            <Users className="h-4 w-4 mr-2" />
-            Send Notification
-          </Button>
+          {/* Notification UI for selected/all students */}
+          <div className="flex flex-col gap-2 items-start">
+            <select
+              className="border rounded px-3 py-1 text-sm"
+              value={notificationMessage}
+              onChange={(e) => setNotificationMessage(e.target.value)}
+            >
+              <option value="">Select Notification</option>
+              {notificationOptions.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                onClick={async () => {
+                  if (
+                    !notificationMessage ||
+                    selectedNotificationRecipients.length === 0
+                  ) {
+                    toast({
+                      title: "Select Recipients and Notification",
+                      description:
+                        "Please select at least one recipient and a notification message.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  try {
+                    await updateNotificationForSelected(
+                      notificationMessage,
+                      selectedNotificationRecipients
+                    );
+                    toast({
+                      title: "Notification Sent",
+                      description: `Notification "${notificationMessage}" sent to selected students.`,
+                    });
+                    setNotificationMessage("");
+                    setSelectedNotificationRecipients([]);
+                  } catch (error) {
+                    toast({
+                      title: "Error Sending Notification",
+                      description:
+                        error instanceof Error
+                          ? error.message
+                          : "Failed to send notification.",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                disabled={
+                  !notificationMessage ||
+                  selectedNotificationRecipients.length === 0
+                }
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Send to Selected
+              </Button>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  if (!notificationMessage) {
+                    toast({
+                      title: "No Notification Selected",
+                      description:
+                        "Please select a notification message to send.",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  try {
+                    await updateNotificationForAll(notificationMessage);
+                    toast({
+                      title: "Notification Sent",
+                      description: `Notification "${notificationMessage}" sent to all students.`,
+                    });
+                    setNotificationMessage("");
+                    setSelectedNotificationRecipients([]);
+                  } catch (error) {
+                    toast({
+                      title: "Error Sending Notification",
+                      description:
+                        error instanceof Error
+                          ? error.message
+                          : "Failed to send notification.",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                disabled={!notificationMessage}
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Send to All
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
-
+      {/* AI Email Generator */}
+      <div className="my-6 p-4 border rounded bg-muted">
+        <h2 className="text-lg font-semibold mb-2">AI Email Generator</h2>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className="block text-sm mb-1">
+              Describe the email you want:
+            </label>
+            <Input
+              placeholder="e.g. Invite students to the new club event"
+              value={emailPrompt}
+              onChange={(e) => setEmailPrompt(e.target.value)}
+              disabled={emailLoading}
+            />
+          </div>
+          <Button
+            className="mt-2 sm:mt-0 sm:ml-2"
+            onClick={handleGenerateEmail}
+            disabled={emailLoading}
+          >
+            {emailLoading ? "Generating..." : "Generate Email"}
+          </Button>
+        </div>
+        {generatedEmail && (
+          <div className="mt-4 p-3 bg-white border rounded text-sm whitespace-pre-line">
+            <strong>Generated Email:</strong>
+            <div className="mt-2">{generatedEmail}</div>
+          </div>
+        )}
+      </div>
+      <Button
+        variant="secondary"
+        className="mt-2"
+        onClick={handleSendEmailToAllStudents}
+        disabled={!generatedEmail}
+      >
+        Send Email to All Students
+      </Button>
       {/* Statistics Cards */}
       {statistics && !statsLoading && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -369,7 +605,37 @@ const StudentManagement: React.FC = () => {
           </Card>
         </div>
       )}
-
+      {/* Multi-select for choosing students to notify */}
+      <div className="max-h-48 overflow-auto border rounded px-3 py-1 text-sm w-72 mb-4">
+        <p className="font-semibold mb-1">Select Recipients:</p>
+        {students.length === 0 ? (
+          <p className="text-muted-foreground">No students available</p>
+        ) : (
+          students.map((student) => (
+            <label
+              key={student.id}
+              className="flex items-center gap-2 mb-1 cursor-pointer"
+            >
+              <input
+                type="checkbox"
+                value={student.id}
+                checked={selectedNotificationRecipients.includes(student.id)}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setSelectedNotificationRecipients((prev) =>
+                    e.target.checked
+                      ? [...prev, id]
+                      : prev.filter((sid) => sid !== id)
+                  );
+                }}
+              />
+              <span>
+                {student.full_name} ({student.student_id})
+              </span>
+            </label>
+          ))
+        )}
+      </div>
       {/* Filters and Search */}
       <Card>
         <CardContent className="p-6">
@@ -427,14 +693,12 @@ const StudentManagement: React.FC = () => {
           </div>
         </CardContent>
       </Card>
-
       {/* Error Display */}
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-
       {/* Students Table */}
       <Card>
         <CardHeader>
@@ -475,7 +739,14 @@ const StudentManagement: React.FC = () => {
                         {student.student_id}
                       </TableCell>
                       <TableCell>{student.full_name}</TableCell>
-                      <TableCell>{student.email}</TableCell>
+                      <TableCell>
+                        <a
+                          href={`mailto:${student.email}`}
+                          className="text-inherit no-underline"
+                        >
+                          {student.email}
+                        </a>
+                      </TableCell>
                       <TableCell>{student.department}</TableCell>
                       <TableCell>{student.blood_group || "N/A"}</TableCell>
                       <TableCell>{getStatusBadge(student.status)}</TableCell>
@@ -517,7 +788,6 @@ const StudentManagement: React.FC = () => {
           )}
         </CardContent>
       </Card>
-
       {/* Add Student Form */}
       {showAddForm && (
         <AddStudentForm
@@ -528,7 +798,6 @@ const StudentManagement: React.FC = () => {
           }}
         />
       )}
-
       {/* Student Details Dialog */}
       <Dialog
         open={!!selectedStudent}
