@@ -1,87 +1,152 @@
 import { useState } from "react";
-import { Search, Download, Eye, BookOpen, FileText, Video, Image } from "lucide-react";
+import { Search, Download, Eye, BookOpen, FileText, Video, Image, Upload, Plus, Archive, Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Layout from "@/components/Layout";
+import UploadResourceDialog from "@/components/UploadResourceDialog";
+import ResourcePreviewDialog from "@/components/ResourcePreviewDialog";
+import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { useResources } from "@/hooks/useDatabase2";
+import { useAuth } from "@/context/AuthContext";
+import type { Resource } from "@/lib/supabase";
 
-const mockResources = [
-  {
-    id: 1,
-    title: "Computer Science Study Materials",
-    description: "Comprehensive collection of algorithms, data structures, and programming resources",
-    type: "PDF",
-    category: "Academic",
-    size: "12.5 MB",
-    downloads: 1250,
-    uploadDate: "2024-07-15",
-    tags: ["Programming", "Algorithms", "Data Structures"],
-    thumbnail: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=200"
-  },
-  {
-    id: 2,
-    title: "Photography Workshop Videos",
-    description: "Professional photography techniques and editing tutorials",
-    type: "Video",
-    category: "Creative",
-    size: "450 MB",
-    downloads: 890,
-    uploadDate: "2024-07-10",
-    tags: ["Photography", "Tutorial", "Creative"],
-    thumbnail: "https://images.unsplash.com/photo-1606983340126-99ab4feaa64a?w=200"
-  },
-  {
-    id: 3,
-    title: "Business Plan Templates",
-    description: "Ready-to-use templates for entrepreneurship and business courses",
-    type: "Document",
-    category: "Business",
-    size: "2.1 MB",
-    downloads: 670,
-    uploadDate: "2024-07-08",
-    tags: ["Business", "Templates", "Entrepreneurship"],
-    thumbnail: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=200"
-  },
-  {
-    id: 4,
-    title: "Lab Report Guidelines",
-    description: "Formatting and structure guidelines for scientific lab reports",
-    type: "PDF",
-    category: "Science",
-    size: "1.8 MB",
-    downloads: 1100,
-    uploadDate: "2024-07-05",
-    tags: ["Science", "Lab", "Guidelines"],
-    thumbnail: "https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=200"
-  }
+const categories = ["All", "Academic", "Research", "Laboratory", "Software", "Career", "Creative", "Reference", "Past Papers", "Project"];
+const subjects = ["All", "Computer Science", "Programming", "Data Structures", "Algorithms", "Database Systems", "Software Engineering", "Computer Networks", "Artificial Intelligence", "Machine Learning", "Web Development", "Mobile Development", "Mathematics", "Statistics", "Physics", "Chemistry", "Economics", "Finance", "Marketing", "Management", "English", "General Studies"];
+const resourceTypes = ["All", "PDF", "Video", "Document", "Image", "Audio", "Archive"];
+
+const sampleResources: Resource[] = [
+  
 ];
-
-const categories = ["All", "Academic", "Creative", "Business", "Science", "Career"];
-const resourceTypes = ["All", "PDF", "Video", "Document", "Image", "Audio"];
 
 const Resources = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedSubject, setSelectedSubject] = useState("All");
   const [selectedType, setSelectedType] = useState("All");
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [previewResource, setPreviewResource] = useState<Resource | null>(null);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
 
-  const filteredResources = mockResources.filter(resource => {
-    const matchesSearch = resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         resource.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === "All" || resource.category === selectedCategory;
-    const matchesType = selectedType === "All" || resource.type === selectedType;
-    return matchesSearch && matchesCategory && matchesType;
+  const { isAuthenticated } = useAuth();
+  const { resources: dbResources, loading: dbLoading, error: dbError, refetch, downloadResource, getResourcePreviewUrl } = useResources();
+
+  // Debug logging
+  console.log('🔍 DEBUG: dbResources:', dbResources);
+  console.log('🔍 DEBUG: dbResources length:', dbResources.length);
+  console.log('🔍 DEBUG: sampleResources length:', sampleResources.length);
+  console.log('🔍 DEBUG: dbLoading:', dbLoading);
+  console.log('🔍 DEBUG: dbError:', dbError);
+
+  // Show detailed info about each DB resource
+  dbResources.forEach((resource, index) => {
+    console.log(`🔍 DB Resource ${index + 1}:`, {
+      id: resource.id,
+      title: resource.title,
+      file_path: resource.file_path,
+      created_at: resource.created_at
+    });
   });
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "PDF": return <FileText className="h-4 w-4" />;
-      case "Video": return <Video className="h-4 w-4" />;
-      case "Image": return <Image className="h-4 w-4" />;
-      default: return <BookOpen className="h-4 w-4" />;
+  // Combine database resources with sample resources
+  const allResources = [...dbResources, ...sampleResources]; // DB resources first now
+  const resources = allResources;
+  const loading = dbLoading; // Use actual loading state
+  const error = dbError; // Use actual error state
+  
+  console.log('🔍 DEBUG: Combined resources length:', resources.length);
+
+  // Apply filters to resources
+  const filteredResources = resources.filter(resource => {
+    const matchesSearch = searchTerm === "" || 
+      resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (resource.description && resource.description.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesCategory = selectedCategory === "All" || resource.category === selectedCategory;
+    const matchesSubject = selectedSubject === "All" || resource.subject === selectedSubject;
+    
+    const matchesType = selectedType === "All" || (() => {
+      const fileType = resource.file_type?.toLowerCase() || "";
+      switch (selectedType) {
+        case "PDF": return fileType.includes("pdf");
+        case "Video": return fileType.includes("video");
+        case "Document": return fileType.includes("doc") || fileType.includes("text");
+        case "Image": return fileType.includes("image");
+        case "Audio": return fileType.includes("audio");
+        case "Archive": return fileType.includes("zip") || fileType.includes("rar");
+        default: return true;
+      }
+    })();
+    
+    return matchesSearch && matchesCategory && matchesSubject && matchesType;
+  });
+
+  const getTypeIcon = (fileType?: string) => {
+    if (!fileType) return <BookOpen className="h-4 w-4" />;
+    const type = fileType.toLowerCase();
+    if (type.includes("pdf")) return <FileText className="h-4 w-4 text-red-500" />;
+    if (type.includes("video")) return <Video className="h-4 w-4 text-purple-500" />;
+    if (type.includes("image")) return <Image className="h-4 w-4 text-green-500" />;
+    if (type.includes("zip") || type.includes("rar")) return <Archive className="h-4 w-4 text-orange-500" />;
+    return <FileText className="h-4 w-4 text-blue-500" />;
+  };
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return "Unknown";
+    if (bytes === 0) return "0 B";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+  };
+
+  const handlePreview = (resource: Resource) => {
+    setPreviewResource(resource);
+    setPreviewDialogOpen(true);
+  };
+
+  const handleDownload = async (resource: Resource) => {
+    try {
+      // Check if it's a sample resource
+      if (resource.file_path.startsWith("sample/")) {
+        // Show demo message for sample resources
+        alert(`Demo Resource: "${resource.title}" would be downloaded in a real implementation. This is a sample resource for demonstration purposes.`);
+        return;
+      }
+      
+      // For real database resources, use the actual download function
+      await downloadResource(resource);
+    } catch (error) {
+      console.error("Download failed:", error);
     }
   };
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-8">
+          <LoadingSpinner />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (error) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-8">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-destructive mb-4">Error Loading Resources</h2>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <Button onClick={() => refetch()}>Try Again</Button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
@@ -89,127 +154,267 @@ const Resources = () => {
       <div className="container mx-auto px-4 py-8">
         {/* Header Section */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-4">
-            Course Resources
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Access study materials, templates, guides, and educational content shared by the community
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <BookOpen className="h-10 w-10 text-primary" />
+            <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+              Course Resource Repository
+            </h1>
+          </div>
+          <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-6">
+            Digital library for non-academic course materials and educational resources. 
+            Share knowledge and access resources contributed by your fellow students.
           </p>
+          {isAuthenticated && (
+            <Button onClick={() => setUploadDialogOpen(true)} size="lg" className="gap-2">
+              <Plus className="h-5 w-5" />
+              Contribute Resource
+            </Button>
+          )}
         </div>
 
         {/* Search and Filters */}
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="relative flex-1">
+        <div className="space-y-4 mb-8">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Search resources..."
+              placeholder="Search resources by title or description..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
             />
           </div>
-          
-          <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-auto">
-            <TabsList className="grid grid-cols-3 lg:grid-cols-6">
-              {categories.map((category) => (
-                <TabsTrigger key={category} value={category} className="text-xs">
-                  {category}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-          
-          <Tabs value={selectedType} onValueChange={setSelectedType} className="w-auto">
-            <TabsList className="grid grid-cols-3 lg:grid-cols-6">
-              {resourceTypes.map((type) => (
-                <TabsTrigger key={type} value={type} className="text-xs">
-                  {type}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger>
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedSubject} onValueChange={setSelectedSubject}>
+              <SelectTrigger>
+                <SelectValue placeholder="Subject" />
+              </SelectTrigger>
+              <SelectContent>
+                {subjects.map((subject) => (
+                  <SelectItem key={subject} value={subject}>
+                    {subject}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select value={selectedType} onValueChange={setSelectedType}>
+              <SelectTrigger>
+                <SelectValue placeholder="File Type" />
+              </SelectTrigger>
+              <SelectContent>
+                {resourceTypes.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setSearchTerm("");
+                setSelectedCategory("All");
+                setSelectedSubject("All");
+                setSelectedType("All");
+              }}
+            >
+              Clear Filters
+            </Button>
+          </div>
         </div>
+
+    
 
         {/* Results Count */}
-        <p className="text-muted-foreground mb-6">
-          Showing {filteredResources.length} resources
-        </p>
+        <div className="flex justify-between items-center mb-6">
+          <p className="text-muted-foreground">
+            Showing {filteredResources.length} of {resources.length} resources 
+            ({dbResources.length} database + {sampleResources.length} demo)
+          </p>
+          <div className="flex items-center gap-4">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                console.log('🔄 Manual refresh triggered');
+                refetch();
+              }}
+            >
+              🔄 Refresh
+            </Button>
+            {!isAuthenticated && (
+              <p className="text-sm text-muted-foreground">
+                <a href="/signin" className="text-primary hover:underline">Sign in</a> to upload resources
+              </p>
+            )}
+          </div>
+        </div>
 
         {/* Resources Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredResources.map((resource) => (
-            <Card key={resource.id} className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-card overflow-hidden">
-              <div className="relative">
-                <img
-                  src={resource.thumbnail}
-                  alt={resource.title}
-                  className="w-full h-48 object-cover"
-                />
-                <div className="absolute top-4 left-4">
-                  <Badge variant="secondary" className="bg-background/80 flex items-center gap-1">
-                    {getTypeIcon(resource.type)}
-                    {resource.type}
-                  </Badge>
-                </div>
-                <div className="absolute top-4 right-4">
-                  <Badge variant="outline" className="bg-background/80">
-                    {resource.category}
-                  </Badge>
-                </div>
-              </div>
-              
-              <div className="p-6">
-                <h3 className="text-xl font-semibold group-hover:text-primary transition-colors mb-2">
-                  {resource.title}
-                </h3>
-                
-                <p className="text-muted-foreground mb-4 line-clamp-2">
-                  {resource.description}
-                </p>
-                
-                <div className="flex flex-wrap gap-1 mb-4">
-                  {resource.tags.map((tag) => (
-                    <Badge key={tag} variant="outline" className="text-xs">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-                
-                <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-                  <span>{resource.size}</span>
-                  <span>{resource.downloads} downloads</span>
-                  <span>{new Date(resource.uploadDate).toLocaleDateString()}</span>
-                </div>
-                
-                <div className="flex gap-2">
-                  <Button className="flex-1">
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </Button>
-                  <Button variant="outline" size="icon">
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-
-        {/* Upload Section */}
-        <div className="text-center mt-12">
-          <Card className="p-8 bg-gradient-accent border-0">
-            <h2 className="text-2xl font-bold text-accent-foreground mb-4">
-              Share Your Resources
-            </h2>
-            <p className="text-accent-foreground/80 mb-6">
-              Help fellow students by uploading your study materials, notes, and useful resources
+        {filteredResources.length === 0 ? (
+          <div className="text-center py-12">
+            <BookOpen className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-xl font-semibold mb-2">No resources found</h3>
+            <p className="text-muted-foreground mb-4">
+              {searchTerm || selectedCategory !== "All" || selectedSubject !== "All" || selectedType !== "All"
+                ? "Try adjusting your search or filters"
+                : "Be the first to share a resource with the community"
+              }
             </p>
-            <Button variant="secondary" size="lg">
-              Upload Resource
-            </Button>
-          </Card>
-        </div>
+            {isAuthenticated && (
+              <Button onClick={() => setUploadDialogOpen(true)} variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Upload First Resource
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredResources.map((resource) => (
+              <Card key={resource.id} className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-card overflow-hidden">
+                <div className="relative bg-gradient-to-br from-muted/30 to-muted/60 h-48 flex items-center justify-center">
+                  <div className="text-center">
+                    {getTypeIcon(resource.file_type)}
+                    <p className="text-xs text-muted-foreground mt-2 font-medium">
+                      {resource.file_type?.split('/')[1]?.toUpperCase() || 'FILE'}
+                    </p>
+                  </div>
+                  
+                  <div className="absolute top-4 left-4">
+                    <Badge variant="secondary" className="bg-background/80 flex items-center gap-1">
+                      {getTypeIcon(resource.file_type)}
+                      {resource.category || 'Academic'}
+                    </Badge>
+                  </div>
+                  
+                  {resource.subject && (
+                    <div className="absolute top-4 right-4">
+                      <Badge variant="outline" className="bg-background/80">
+                        {resource.subject}
+                      </Badge>
+                    </div>
+                  )}
+
+                  {resource.course_code && (
+                    <div className="absolute bottom-4 left-4">
+                      <Badge variant="outline" className="bg-background/80 flex items-center gap-1">
+                        <Hash className="h-3 w-3" />
+                        {resource.course_code}
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="p-6">
+                  <h3 className="text-xl font-semibold group-hover:text-primary transition-colors mb-2 line-clamp-2">
+                    {resource.title}
+                  </h3>
+                  
+                  <p className="text-muted-foreground mb-4 line-clamp-2 text-sm">
+                    {resource.description || "No description provided"}
+                  </p>
+                  
+                  {resource.tags && resource.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-4">
+                      {resource.tags.slice(0, 3).map((tag) => (
+                        <Badge key={tag} variant="outline" className="text-xs">
+                          {tag}
+                        </Badge>
+                      ))}
+                      {resource.tags.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{resource.tags.length - 3}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
+                    <span>{formatFileSize(resource.file_size)}</span>
+                    <span>{resource.download_count || 0} downloads</span>
+                    <span>{new Date(resource.created_at).toLocaleDateString()}</span>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      className="flex-1" 
+                      onClick={() => handleDownload(resource)}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={() => handlePreview(resource)}
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Call to Action Section */}
+        {isAuthenticated && (
+          <div className="text-center mt-12">
+            <Card className="p-8 bg-gradient-accent border-0">
+              <Upload className="h-12 w-12 mx-auto text-accent-foreground mb-4" />
+              <h2 className="text-2xl font-bold text-accent-foreground mb-4">
+                Share Your Knowledge
+              </h2>
+              <p className="text-accent-foreground/80 mb-6 max-w-2xl mx-auto">
+                Help your fellow students succeed by contributing your study materials, 
+                project reports, useful tools, and educational resources to our community library.
+              </p>
+              <Button 
+                variant="secondary" 
+                size="lg" 
+                onClick={() => setUploadDialogOpen(true)}
+                className="gap-2"
+              >
+                <Plus className="h-5 w-5" />
+                Upload Resource
+              </Button>
+            </Card>
+          </div>
+        )}
       </div>
+
+      {/* Dialogs */}
+      <UploadResourceDialog 
+        open={uploadDialogOpen} 
+        onOpenChange={setUploadDialogOpen}
+        onUploadSuccess={() => {
+          console.log('DEBUG: Upload success, triggering refetch...');
+          refetch();
+        }}
+      />
+      
+      <ResourcePreviewDialog
+        resource={previewResource}
+        open={previewDialogOpen}
+        onOpenChange={setPreviewDialogOpen}
+        onDownload={handleDownload}
+        getPreviewUrl={getResourcePreviewUrl}
+      />
     </Layout>
   );
 };
