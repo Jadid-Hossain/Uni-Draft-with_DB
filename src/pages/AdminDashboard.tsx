@@ -1,5 +1,11 @@
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,21 +49,41 @@ const AdminDashboard = () => {
   };
 
   const recentUsers = [
-    { id: 1, name: "Alice Johnson", email: "alice@university.edu", department: "Computer Science", joinDate: "2024-01-15" },
-    { id: 2, name: "Bob Smith", email: "bob@university.edu", department: "Engineering", joinDate: "2024-01-14" },
-    { id: 3, name: "Carol Davis", email: "carol@university.edu", department: "Business", joinDate: "2024-01-13" },
+    {
+      id: 1,
+      name: "Alice Johnson",
+      email: "alice@university.edu",
+      department: "Computer Science",
+      joinDate: "2024-01-15",
+    },
+    {
+      id: 2,
+      name: "Bob Smith",
+      email: "bob@university.edu",
+      department: "Engineering",
+      joinDate: "2024-01-14",
+    },
+    {
+      id: 3,
+      name: "Carol Davis",
+      email: "carol@university.edu",
+      department: "Business",
+      joinDate: "2024-01-13",
+    },
   ];
 
 
 
-  if (user?.role !== 'admin') {
+  if (user?.role !== "admin") {
     return (
       <Layout>
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20 pt-20">
           <Card className="w-full max-w-md">
             <CardHeader className="text-center">
               <CardTitle className="text-destructive">Access Denied</CardTitle>
-              <CardDescription>You don't have permission to access this page.</CardDescription>
+              <CardDescription>
+                You don't have permission to access this page.
+              </CardDescription>
             </CardHeader>
           </Card>
         </div>
@@ -132,9 +158,15 @@ const AdminDashboard = () => {
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">Total Users</p>
-                        <p className="text-3xl font-bold text-foreground">{stats.totalUsers}</p>
-                        <p className="text-xs text-success">+12% from last month</p>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Total Users
+                        </p>
+                        <p className="text-3xl font-bold text-foreground">
+                          {stats.totalUsers}
+                        </p>
+                        <p className="text-xs text-success">
+                          +12% from last month
+                        </p>
                       </div>
                       <div className="bg-primary/10 p-3 rounded-lg">
                         <Users className="h-6 w-6 text-primary" />
@@ -147,9 +179,15 @@ const AdminDashboard = () => {
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">Active Clubs</p>
-                        <p className="text-3xl font-bold text-foreground">{stats.activeClubs}</p>
-                        <p className="text-xs text-success">+3 new this month</p>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Active Clubs
+                        </p>
+                        <p className="text-3xl font-bold text-foreground">
+                          {stats.activeClubs}
+                        </p>
+                        <p className="text-xs text-success">
+                          +3 new this month
+                        </p>
                       </div>
                       <div className="bg-accent/10 p-3 rounded-lg">
                         <Shield className="h-6 w-6 text-accent" />
@@ -162,8 +200,12 @@ const AdminDashboard = () => {
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-sm font-medium text-muted-foreground">Total Events</p>
-                        <p className="text-3xl font-bold text-foreground">{stats.totalEvents}</p>
+                        <p className="text-sm font-medium text-muted-foreground">
+                          Total Events
+                        </p>
+                        <p className="text-3xl font-bold text-foreground">
+                          {stats.totalEvents}
+                        </p>
                         <p className="text-xs text-success">+8 this week</p>
                       </div>
                       <div className="bg-warning/10 p-3 rounded-lg">
@@ -201,16 +243,39 @@ const AdminDashboard = () => {
                   <CardContent>
                     <div className="space-y-4">
                       {[
-                        { action: "New club application", time: "2 hours ago", type: "club" },
-                        { action: "Event registration opened", time: "4 hours ago", type: "event" },
-                        { action: "New user registered", time: "6 hours ago", type: "user" },
-                        { action: "Club meeting scheduled", time: "1 day ago", type: "meeting" },
+                        {
+                          action: "New club application",
+                          time: "2 hours ago",
+                          type: "club",
+                        },
+                        {
+                          action: "Event registration opened",
+                          time: "4 hours ago",
+                          type: "event",
+                        },
+                        {
+                          action: "New user registered",
+                          time: "6 hours ago",
+                          type: "user",
+                        },
+                        {
+                          action: "Club meeting scheduled",
+                          time: "1 day ago",
+                          type: "meeting",
+                        },
                       ].map((activity, index) => (
-                        <div key={index} className="flex items-center space-x-3 p-3 bg-muted/50 rounded-lg">
+                        <div
+                          key={index}
+                          className="flex items-center space-x-3 p-3 bg-muted/50 rounded-lg"
+                        >
                           <div className="h-2 w-2 rounded-full bg-primary" />
                           <div className="flex-1">
-                            <p className="text-sm font-medium">{activity.action}</p>
-                            <p className="text-xs text-muted-foreground">{activity.time}</p>
+                            <p className="text-sm font-medium">
+                              {activity.action}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {activity.time}
+                            </p>
                           </div>
                         </div>
                       ))}
@@ -241,8 +306,8 @@ const AdminDashboard = () => {
                         <Calendar className="h-5 w-5" />
                         <span className="text-sm">Create Event</span>
                       </Button>
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="h-20 flex-col space-y-2"
                         onClick={() => setActiveTab("students")}
                       >
@@ -470,7 +535,9 @@ const AdminDashboard = () => {
                     <Settings className="mr-2 h-5 w-5" />
                     System Settings
                   </CardTitle>
-                  <CardDescription>Configure platform settings and preferences</CardDescription>
+                  <CardDescription>
+                    Configure platform settings and preferences
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -481,13 +548,19 @@ const AdminDashboard = () => {
                       </div>
                       <div>
                         <Label htmlFor="university-name">University Name</Label>
-                        <Input id="university-name" defaultValue="University of Excellence" />
+                        <Input
+                          id="university-name"
+                          defaultValue="University of Excellence"
+                        />
                       </div>
                     </div>
                     <div className="space-y-4">
                       <div>
                         <Label htmlFor="admin-email">Admin Email</Label>
-                        <Input id="admin-email" defaultValue="admin@university.edu" />
+                        <Input
+                          id="admin-email"
+                          defaultValue="admin@university.edu"
+                        />
                       </div>
                       <div>
                         <Label htmlFor="max-clubs">Max Clubs per User</Label>
