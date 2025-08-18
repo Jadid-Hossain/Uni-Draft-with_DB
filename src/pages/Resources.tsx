@@ -1,11 +1,30 @@
 import { useState } from "react";
-import { Search, Download, Eye, BookOpen, FileText, Video, Image, Upload, Plus, Archive, Hash } from "lucide-react";
+import {
+  Search,
+  Download,
+  Eye,
+  BookOpen,
+  FileText,
+  Video,
+  Image,
+  Upload,
+  Plus,
+  Archive,
+  Hash,
+  Calendar,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import Layout from "@/components/Layout";
 import UploadResourceDialog from "@/components/UploadResourceDialog";
 import ResourcePreviewDialog from "@/components/ResourcePreviewDialog";
@@ -14,13 +33,53 @@ import { useResources } from "@/hooks/useDatabase2";
 import { useAuth } from "@/context/AuthContext";
 import type { Resource } from "@/lib/supabase";
 
-const categories = ["All", "Academic", "Research", "Laboratory", "Software", "Career", "Creative", "Reference", "Past Papers", "Project"];
-const subjects = ["All", "Computer Science", "Programming", "Data Structures", "Algorithms", "Database Systems", "Software Engineering", "Computer Networks", "Artificial Intelligence", "Machine Learning", "Web Development", "Mobile Development", "Mathematics", "Statistics", "Physics", "Chemistry", "Economics", "Finance", "Marketing", "Management", "English", "General Studies"];
-const resourceTypes = ["All", "PDF", "Video", "Document", "Image", "Audio", "Archive"];
-
-const sampleResources: Resource[] = [
-  
+const categories = [
+  "All",
+  "Academic",
+  "Research",
+  "Laboratory",
+  "Software",
+  "Career",
+  "Creative",
+  "Reference",
+  "Past Papers",
+  "Project",
 ];
+const subjects = [
+  "All",
+  "Computer Science",
+  "Programming",
+  "Data Structures",
+  "Algorithms",
+  "Database Systems",
+  "Software Engineering",
+  "Computer Networks",
+  "Artificial Intelligence",
+  "Machine Learning",
+  "Web Development",
+  "Mobile Development",
+  "Mathematics",
+  "Statistics",
+  "Physics",
+  "Chemistry",
+  "Economics",
+  "Finance",
+  "Marketing",
+  "Management",
+  "English",
+  "General Studies",
+];
+const resourceTypes = [
+  "All",
+  "PDF",
+  "Video",
+  "Document",
+  "Image",
+  "Audio",
+  "Archive",
+];
+
+const sampleResources: Resource[] = [];
 
 const Resources = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -32,14 +91,21 @@ const Resources = () => {
   const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
 
   const { isAuthenticated } = useAuth();
-  const { resources: dbResources, loading: dbLoading, error: dbError, refetch, downloadResource, getResourcePreviewUrl } = useResources();
+  const {
+    resources: dbResources,
+    loading: dbLoading,
+    error: dbError,
+    refetch,
+    downloadResource,
+    getResourcePreviewUrl,
+  } = useResources();
 
   // Debug logging
-  console.log('🔍 DEBUG: dbResources:', dbResources);
-  console.log('🔍 DEBUG: dbResources length:', dbResources.length);
-  console.log('🔍 DEBUG: sampleResources length:', sampleResources.length);
-  console.log('🔍 DEBUG: dbLoading:', dbLoading);
-  console.log('🔍 DEBUG: dbError:', dbError);
+  console.log("🔍 DEBUG: dbResources:", dbResources);
+  console.log("🔍 DEBUG: dbResources length:", dbResources.length);
+  console.log("🔍 DEBUG: sampleResources length:", sampleResources.length);
+  console.log("🔍 DEBUG: dbLoading:", dbLoading);
+  console.log("🔍 DEBUG: dbError:", dbError);
 
   // Show detailed info about each DB resource
   dbResources.forEach((resource, index) => {
@@ -47,7 +113,7 @@ const Resources = () => {
       id: resource.id,
       title: resource.title,
       file_path: resource.file_path,
-      created_at: resource.created_at
+      created_at: resource.created_at,
     });
   });
 
@@ -56,41 +122,58 @@ const Resources = () => {
   const resources = allResources;
   const loading = dbLoading; // Use actual loading state
   const error = dbError; // Use actual error state
-  
-  console.log('🔍 DEBUG: Combined resources length:', resources.length);
+
+  console.log("🔍 DEBUG: Combined resources length:", resources.length);
 
   // Apply filters to resources
-  const filteredResources = resources.filter(resource => {
-    const matchesSearch = searchTerm === "" || 
+  const filteredResources = resources.filter((resource) => {
+    const matchesSearch =
+      searchTerm === "" ||
       resource.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (resource.description && resource.description.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesCategory = selectedCategory === "All" || resource.category === selectedCategory;
-    const matchesSubject = selectedSubject === "All" || resource.subject === selectedSubject;
-    
-    const matchesType = selectedType === "All" || (() => {
-      const fileType = resource.file_type?.toLowerCase() || "";
-      switch (selectedType) {
-        case "PDF": return fileType.includes("pdf");
-        case "Video": return fileType.includes("video");
-        case "Document": return fileType.includes("doc") || fileType.includes("text");
-        case "Image": return fileType.includes("image");
-        case "Audio": return fileType.includes("audio");
-        case "Archive": return fileType.includes("zip") || fileType.includes("rar");
-        default: return true;
-      }
-    })();
-    
+      (resource.description &&
+        resource.description.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const matchesCategory =
+      selectedCategory === "All" || resource.category === selectedCategory;
+    const matchesSubject =
+      selectedSubject === "All" || resource.subject === selectedSubject;
+
+    const matchesType =
+      selectedType === "All" ||
+      (() => {
+        const fileType = resource.file_type?.toLowerCase() || "";
+        switch (selectedType) {
+          case "PDF":
+            return fileType.includes("pdf");
+          case "Video":
+            return fileType.includes("video");
+          case "Document":
+            return fileType.includes("doc") || fileType.includes("text");
+          case "Image":
+            return fileType.includes("image");
+          case "Audio":
+            return fileType.includes("audio");
+          case "Archive":
+            return fileType.includes("zip") || fileType.includes("rar");
+          default:
+            return true;
+        }
+      })();
+
     return matchesSearch && matchesCategory && matchesSubject && matchesType;
   });
 
   const getTypeIcon = (fileType?: string) => {
     if (!fileType) return <BookOpen className="h-4 w-4" />;
     const type = fileType.toLowerCase();
-    if (type.includes("pdf")) return <FileText className="h-4 w-4 text-red-500" />;
-    if (type.includes("video")) return <Video className="h-4 w-4 text-purple-500" />;
-    if (type.includes("image")) return <Image className="h-4 w-4 text-green-500" />;
-    if (type.includes("zip") || type.includes("rar")) return <Archive className="h-4 w-4 text-orange-500" />;
+    if (type.includes("pdf"))
+      return <FileText className="h-4 w-4 text-red-500" />;
+    if (type.includes("video"))
+      return <Video className="h-4 w-4 text-purple-500" />;
+    if (type.includes("image"))
+      return <Image className="h-4 w-4 text-green-500" />;
+    if (type.includes("zip") || type.includes("rar"))
+      return <Archive className="h-4 w-4 text-orange-500" />;
     return <FileText className="h-4 w-4 text-blue-500" />;
   };
 
@@ -113,10 +196,12 @@ const Resources = () => {
       // Check if it's a sample resource
       if (resource.file_path.startsWith("sample/")) {
         // Show demo message for sample resources
-        alert(`Demo Resource: "${resource.title}" would be downloaded in a real implementation. This is a sample resource for demonstration purposes.`);
+        alert(
+          `Demo Resource: "${resource.title}" would be downloaded in a real implementation. This is a sample resource for demonstration purposes.`
+        );
         return;
       }
-      
+
       // For real database resources, use the actual download function
       await downloadResource(resource);
     } catch (error) {
@@ -139,7 +224,9 @@ const Resources = () => {
       <Layout>
         <div className="container mx-auto px-4 py-8">
           <div className="text-center">
-            <h2 className="text-2xl font-bold text-destructive mb-4">Error Loading Resources</h2>
+            <h2 className="text-2xl font-bold text-destructive mb-4">
+              Error Loading Resources
+            </h2>
             <p className="text-muted-foreground mb-4">{error}</p>
             <Button onClick={() => refetch()}>Try Again</Button>
           </div>
@@ -150,7 +237,6 @@ const Resources = () => {
 
   return (
     <Layout>
-      
       <div className="container mx-auto px-4 py-8">
         {/* Header Section */}
         <div className="text-center mb-12">
@@ -161,11 +247,16 @@ const Resources = () => {
             </h1>
           </div>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-6">
-            Digital library for non-academic course materials and educational resources. 
-            Share knowledge and access resources contributed by your fellow students.
+            Digital library for non-academic course materials and educational
+            resources. Share knowledge and access resources contributed by your
+            fellow students.
           </p>
           {isAuthenticated && (
-            <Button onClick={() => setUploadDialogOpen(true)} size="lg" className="gap-2">
+            <Button
+              onClick={() => setUploadDialogOpen(true)}
+              size="lg"
+              className="gap-2"
+            >
               <Plus className="h-5 w-5" />
               Contribute Resource
             </Button>
@@ -185,7 +276,10 @@ const Resources = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <Select
+              value={selectedCategory}
+              onValueChange={setSelectedCategory}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
@@ -224,8 +318,8 @@ const Resources = () => {
               </SelectContent>
             </Select>
 
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => {
                 setSearchTerm("");
                 setSelectedCategory("All");
@@ -238,20 +332,51 @@ const Resources = () => {
           </div>
         </div>
 
-    
+        {/* Statistics Section */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-primary">
+              {resources.length}
+            </div>
+            <div className="text-sm text-muted-foreground">Total Resources</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-green-600">
+              {resources.reduce(
+                (total, r) => total + (r.download_count || 0),
+                0
+              )}
+            </div>
+            <div className="text-sm text-muted-foreground">Total Downloads</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-blue-600">
+              {formatFileSize(
+                resources.reduce((total, r) => total + (r.file_size || 0), 0)
+              )}
+            </div>
+            <div className="text-sm text-muted-foreground">Total Storage</div>
+          </Card>
+          <Card className="p-4 text-center">
+            <div className="text-2xl font-bold text-purple-600">
+              {resources.filter((r) => r.file_type?.includes("pdf")).length}
+            </div>
+            <div className="text-sm text-muted-foreground">PDF Documents</div>
+          </Card>
+        </div>
 
         {/* Results Count */}
         <div className="flex justify-between items-center mb-6">
           <p className="text-muted-foreground">
-            Showing {filteredResources.length} of {resources.length} resources 
-            ({dbResources.length} database + {sampleResources.length} demo)
+            Showing {filteredResources.length} of {resources.length} resources (
+            {dbResources.length} database + {sampleResources.length} demo)
           </p>
           <div className="flex items-center gap-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => {
-                console.log('🔄 Manual refresh triggered');
+                console.log("🔄 Manual refresh triggered");
                 refetch();
               }}
             >
@@ -259,7 +384,10 @@ const Resources = () => {
             </Button>
             {!isAuthenticated && (
               <p className="text-sm text-muted-foreground">
-                <a href="/signin" className="text-primary hover:underline">Sign in</a> to upload resources
+                <a href="/signin" className="text-primary hover:underline">
+                  Sign in
+                </a>{" "}
+                to upload resources
               </p>
             )}
           </div>
@@ -271,13 +399,18 @@ const Resources = () => {
             <BookOpen className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-xl font-semibold mb-2">No resources found</h3>
             <p className="text-muted-foreground mb-4">
-              {searchTerm || selectedCategory !== "All" || selectedSubject !== "All" || selectedType !== "All"
+              {searchTerm ||
+              selectedCategory !== "All" ||
+              selectedSubject !== "All" ||
+              selectedType !== "All"
                 ? "Try adjusting your search or filters"
-                : "Be the first to share a resource with the community"
-              }
+                : "Be the first to share a resource with the community"}
             </p>
             {isAuthenticated && (
-              <Button onClick={() => setUploadDialogOpen(true)} variant="outline">
+              <Button
+                onClick={() => setUploadDialogOpen(true)}
+                variant="outline"
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Upload First Resource
               </Button>
@@ -286,22 +419,29 @@ const Resources = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredResources.map((resource) => (
-              <Card key={resource.id} className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-card overflow-hidden">
+              <Card
+                key={resource.id}
+                className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-card overflow-hidden"
+              >
                 <div className="relative bg-gradient-to-br from-muted/30 to-muted/60 h-48 flex items-center justify-center">
                   <div className="text-center">
                     {getTypeIcon(resource.file_type)}
                     <p className="text-xs text-muted-foreground mt-2 font-medium">
-                      {resource.file_type?.split('/')[1]?.toUpperCase() || 'FILE'}
+                      {resource.file_type?.split("/")[1]?.toUpperCase() ||
+                        "FILE"}
                     </p>
                   </div>
-                  
+
                   <div className="absolute top-4 left-4">
-                    <Badge variant="secondary" className="bg-background/80 flex items-center gap-1">
+                    <Badge
+                      variant="secondary"
+                      className="bg-background/80 flex items-center gap-1"
+                    >
                       {getTypeIcon(resource.file_type)}
-                      {resource.category || 'Academic'}
+                      {resource.category || "Academic"}
                     </Badge>
                   </div>
-                  
+
                   {resource.subject && (
                     <div className="absolute top-4 right-4">
                       <Badge variant="outline" className="bg-background/80">
@@ -312,23 +452,26 @@ const Resources = () => {
 
                   {resource.course_code && (
                     <div className="absolute bottom-4 left-4">
-                      <Badge variant="outline" className="bg-background/80 flex items-center gap-1">
+                      <Badge
+                        variant="outline"
+                        className="bg-background/80 flex items-center gap-1"
+                      >
                         <Hash className="h-3 w-3" />
                         {resource.course_code}
                       </Badge>
                     </div>
                   )}
                 </div>
-                
+
                 <div className="p-6">
                   <h3 className="text-xl font-semibold group-hover:text-primary transition-colors mb-2 line-clamp-2">
                     {resource.title}
                   </h3>
-                  
+
                   <p className="text-muted-foreground mb-4 line-clamp-2 text-sm">
                     {resource.description || "No description provided"}
                   </p>
-                  
+
                   {resource.tags && resource.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-4">
                       {resource.tags.slice(0, 3).map((tag) => (
@@ -343,23 +486,41 @@ const Resources = () => {
                       )}
                     </div>
                   )}
-                  
-                  <div className="flex items-center justify-between text-sm text-muted-foreground mb-4">
-                    <span>{formatFileSize(resource.file_size)}</span>
-                    <span>{resource.download_count || 0} downloads</span>
-                    <span>{new Date(resource.created_at).toLocaleDateString()}</span>
+
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Archive className="h-3 w-3" />
+                        {formatFileSize(resource.file_size)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Download className="h-3 w-3" />
+                        {resource.download_count || 0} downloads
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(resource.created_at).toLocaleDateString()}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <FileText className="h-3 w-3" />
+                        {resource.file_type?.split("/")[1]?.toUpperCase() ||
+                          "FILE"}
+                      </span>
+                    </div>
                   </div>
-                  
+
                   <div className="flex gap-2">
-                    <Button 
-                      className="flex-1" 
+                    <Button
+                      className="flex-1"
                       onClick={() => handleDownload(resource)}
                     >
                       <Download className="h-4 w-4 mr-2" />
                       Download
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="icon"
                       onClick={() => handlePreview(resource)}
                     >
@@ -381,12 +542,13 @@ const Resources = () => {
                 Share Your Knowledge
               </h2>
               <p className="text-accent-foreground/80 mb-6 max-w-2xl mx-auto">
-                Help your fellow students succeed by contributing your study materials, 
-                project reports, useful tools, and educational resources to our community library.
+                Help your fellow students succeed by contributing your study
+                materials, project reports, useful tools, and educational
+                resources to our community library.
               </p>
-              <Button 
-                variant="secondary" 
-                size="lg" 
+              <Button
+                variant="secondary"
+                size="lg"
                 onClick={() => setUploadDialogOpen(true)}
                 className="gap-2"
               >
@@ -399,15 +561,15 @@ const Resources = () => {
       </div>
 
       {/* Dialogs */}
-      <UploadResourceDialog 
-        open={uploadDialogOpen} 
+      <UploadResourceDialog
+        open={uploadDialogOpen}
         onOpenChange={setUploadDialogOpen}
         onUploadSuccess={() => {
-          console.log('DEBUG: Upload success, triggering refetch...');
+          console.log("DEBUG: Upload success, triggering refetch...");
           refetch();
         }}
       />
-      
+
       <ResourcePreviewDialog
         resource={previewResource}
         open={previewDialogOpen}

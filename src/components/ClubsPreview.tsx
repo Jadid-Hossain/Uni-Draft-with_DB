@@ -2,60 +2,45 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, MapPin, Calendar, ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 
-const ClubsPreview = () => {
-  const featuredClubs = [
-    {
-      id: 1,
-      name: "Computer Club",
-      description: "Building the future through code, innovation, and collaboration.",
-      members: 245,
-      category: "Academic",
-      location: "Tech Building",
-      nextEvent: "Hackathon 2024",
-      eventDate: "Dec 15",
+interface Club {
+  id: string;
+  name: string;
+  description: string | null;
+  category?: string;
+  created_at: string;
+  cover_image_url?: string;
+}
 
-      image: "bg-gradient-to-br from-blue-500 to-purple-600"
-    },
-    {
-      id: 2,
-      name: "Photography Club",
-      description: "Capturing moments, creating memories, and exploring visual storytelling.",
-      members: 128,
-      category: "Creative",
-      location: "Arts Center",
-      nextEvent: "Photo Walk",
-      eventDate: "Dec 8",
+interface ClubsPreviewProps {
+  clubs: Club[];
+}
 
-      image: "bg-gradient-to-br from-orange-500 to-pink-600"
-    },
-    {
-      id: 3,
-      name: "Debate Society",
-      description: "Sharpening minds through discourse, argumentation, and public speaking.",
-      members: 89,
-      category: "Academic",
-      location: "Main Hall",
-      nextEvent: "Inter-Uni Debate",
-      eventDate: "Dec 20",
+const ClubsPreview = ({ clubs }: ClubsPreviewProps) => {
+  // Generate gradient backgrounds for clubs
+  const getGradientBackground = (index: number) => {
+    const gradients = [
+      "bg-gradient-to-br from-blue-500 to-purple-600",
+      "bg-gradient-to-br from-orange-500 to-pink-600",
+      "bg-gradient-to-br from-green-500 to-teal-600",
+      "bg-gradient-to-br from-purple-500 to-indigo-600",
+      "bg-gradient-to-br from-red-500 to-orange-600",
+      "bg-gradient-to-br from-indigo-500 to-blue-600",
+      "bg-gradient-to-br from-pink-500 to-red-600",
+      "bg-gradient-to-br from-teal-500 to-green-600",
+    ];
+    return gradients[index % gradients.length];
+  };
 
-      image: "bg-gradient-to-br from-green-500 to-teal-600"
-    },
-    {
-      id: 4,
-      name: "Music Ensemble",
-      description: "Harmonizing voices and instruments to create beautiful melodies.",
-      members: 156,
-      category: "Creative",
-      location: "Music Wing",
-      nextEvent: "Winter Concert",
-      eventDate: "Dec 18",
-
-      image: "bg-gradient-to-br from-purple-500 to-indigo-600"
-    }
+  const categories = [
+    "All",
+    "Academic",
+    "Creative",
+    "Sports",
+    "Community",
+    "Technology",
   ];
-
-  const categories = ["All", "Academic", "Creative", "Sports", "Community", "Technology"];
 
   return (
     <section className="py-16 bg-muted/30">
@@ -66,13 +51,15 @@ const ClubsPreview = () => {
             Discover Student Clubs
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-            Find your community among 30+ active student organizations. From academic societies to creative clubs, there's something for everyone.
+            Find your community among 30+ active student organizations. From
+            academic societies to creative clubs, there's something for
+            everyone.
           </p>
 
           {/* Category Filter */}
           <div className="flex flex-wrap justify-center gap-2 mb-8">
             {categories.map((category) => (
-              <Badge 
+              <Badge
                 key={category}
                 variant={category === "All" ? "default" : "outline"}
                 className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors px-4 py-2"
@@ -84,62 +71,78 @@ const ClubsPreview = () => {
         </div>
 
         {/* Clubs Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-          {featuredClubs.map((club, index) => (
-            <Card 
-              key={club.id} 
-              className="group hover:shadow-lg transition-all duration-200 hover:scale-105 animate-fade-in overflow-hidden"
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              {/* Club Image/Header */}
-              <div className={`h-32 ${club.image} relative`}>
-                <Badge 
-                  className="absolute bottom-3 left-3 bg-white/20 backdrop-blur-sm text-white border-white/30"
+        {clubs.length === 0 ? (
+          <div className="text-center py-12">
+            <Users className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+            <h3 className="text-xl font-semibold mb-2">No clubs available</h3>
+            <p className="text-muted-foreground mb-4">
+              Be the first to create a student club and start building your
+              community!
+            </p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            {clubs.slice(0, 8).map((club, index) => (
+              <Card
+                key={club.id}
+                className="group hover:shadow-lg transition-all duration-200 hover:scale-105 animate-fade-in overflow-hidden"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                {/* Club Image/Header */}
+                <div
+                  className={`h-32 ${getGradientBackground(index)} relative`}
                 >
-                  {club.category}
-                </Badge>
-              </div>
-
-              <CardHeader className="pb-3">
-                <CardTitle className="text-lg line-clamp-1">{club.name}</CardTitle>
-                <p className="text-sm text-muted-foreground line-clamp-2">{club.description}</p>
-              </CardHeader>
-
-              <CardContent className="pt-0">
-                {/* Club Stats */}
-                <div className="space-y-2 mb-4">
-                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                    <Users className="h-4 w-4" />
-                    <span>{club.members} members</span>
-                  </div>
-                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4" />
-                    <span>{club.location}</span>
-                  </div>
-                  <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    <span>{club.nextEvent} • {club.eventDate}</span>
-                  </div>
+                  <Badge className="absolute bottom-3 left-3 bg-white/20 backdrop-blur-sm text-white border-white/30">
+                    {club.category || "General"}
+                  </Badge>
                 </div>
 
-                {/* Join Button */}
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
-                >
-                  Join Club
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg line-clamp-1">
+                    {club.name}
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {club.description || "No description available"}
+                  </p>
+                </CardHeader>
+
+                <CardContent className="pt-0">
+                  {/* Club Stats */}
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span>
+                        Created {new Date(club.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                      <Users className="h-4 w-4" />
+                      <span>Open for members</span>
+                    </div>
+                  </div>
+
+                  {/* Join Button */}
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
+                  >
+                    <Link to={`/join-club/${club.id}`}>Join Club</Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
         {/* View All CTA */}
         <div className="text-center">
-          <Button variant="hero" size="lg" className="group">
-            Explore All Clubs
-            <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+          <Button asChild variant="hero" size="lg" className="group">
+            <Link to="/clubs">
+              Explore All Clubs
+              <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+            </Link>
           </Button>
         </div>
       </div>
