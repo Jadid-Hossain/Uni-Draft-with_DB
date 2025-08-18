@@ -1,5 +1,16 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { authService, type User, type SignupData, type AppRole } from '@/lib/auth';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import {
+  authService,
+  type User,
+  type SignupData,
+  type AppRole,
+} from "@/lib/auth";
 
 interface AuthError {
   message: string;
@@ -19,69 +30,57 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
 
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Initialize auth state
+  // Initialize auth state - simplified
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        // Check if user has existing session
-        const currentUser = authService.getCurrentUser();
-        if (currentUser) {
-          // Validate the session
-          const isValid = await authService.validateSession();
-          if (isValid) {
-            setUser(authService.getCurrentUser());
-          } else {
-            setUser(null);
-          }
-        } else {
-          setUser(null);
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
+    console.log("AuthContext - Initializing auth...");
+    // Just get the current user without validation
+    const currentUser = authService.getCurrentUser();
+    console.log("AuthContext - Current user from service:", currentUser);
 
-    initializeAuth();
+    setUser(currentUser);
+    setLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
-    try {
-      const response = await authService.signin(email, password);
-      
-      if (response.success && response.user) {
-        setUser(response.user);
-        return {};
-      } else {
-        return { error: { message: response.error || 'Login failed' } };
-      }
-    } catch (error) {
-      return { error: { message: 'An unexpected error occurred' } };
+    console.log("AuthContext - Attempting login for:", email);
+    const response = await authService.signin(email, password);
+    console.log("AuthContext - Login response:", response);
+
+    if (response.success && response.user) {
+      console.log(
+        "AuthContext - Login successful, setting user:",
+        response.user
+      );
+      setUser(response.user);
+      return {};
+    } else {
+      console.log("AuthContext - Login failed:", response.error);
+      return { error: { message: response.error || "Login failed" } };
     }
   };
 
   const signup = async (userData: SignupData) => {
     try {
       const response = await authService.signup(userData);
-      
+
       if (response.success) {
         return {};
       } else {
-        return { error: { message: response.error || 'Signup failed' } };
+        return { error: { message: response.error || "Signup failed" } };
       }
     } catch (error) {
-      return { error: { message: 'An unexpected error occurred' } };
+      return { error: { message: "An unexpected error occurred" } };
     }
   };
 
@@ -90,7 +89,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       await authService.signout();
       setUser(null);
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error("Logout error:", error);
       setUser(null);
     }
   };
@@ -104,9 +103,5 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     logout,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

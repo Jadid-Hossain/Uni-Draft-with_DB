@@ -33,55 +33,82 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/signin" element={<SignIn />} />
             <Route path="/signup" element={<SignUp />} />
-            
+
             {/* Protected Routes - Require Authentication */}
-            <Route path="/clubs" element={
-              <ProtectedRoute>
-                <Clubs />
-              </ProtectedRoute>
-            } />
-            <Route path="/events" element={
-              <ProtectedRoute>
-                <Events />
-              </ProtectedRoute>
-            } />
-            <Route path="/forum" element={
-              <ProtectedRoute>
-                <Forum />
-              </ProtectedRoute>
-            } />
-            <Route path="/resources" element={
-              <ProtectedRoute>
-                <Resources />
-              </ProtectedRoute>
-            } />
+            <Route
+              path="/clubs"
+              element={
+                <ProtectedRoute>
+                  <Clubs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/events"
+              element={
+                <ProtectedRoute>
+                  <Events />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/forum"
+              element={
+                <ProtectedRoute>
+                  <Forum />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/resources"
+              element={
+                <ProtectedRoute>
+                  <Resources />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/learn-more" element={<LearnMore />} />
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin" element={
-              <ProtectedRoute>
-                <AdminDashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/chat" element={
-              <ProtectedRoute>
-                <Chat />
-              </ProtectedRoute>
-            } />
-            <Route path="/join-club/:id" element={
-              <ProtectedRoute>
-                <JoinClub />
-              </ProtectedRoute>
-            } />
-            <Route path="/event-registration/:id" element={
-              <ProtectedRoute>
-                <EventRegistration />
-              </ProtectedRoute>
-            } />
-            
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/chat"
+              element={
+                <ProtectedRoute>
+                  <Chat />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/join-club/:id"
+              element={
+                <ProtectedRoute>
+                  <JoinClub />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/event-registration/:id"
+              element={
+                <ProtectedRoute>
+                  <EventRegistration />
+                </ProtectedRoute>
+              }
+            />
+
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
