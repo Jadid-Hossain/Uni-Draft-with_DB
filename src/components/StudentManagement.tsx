@@ -216,34 +216,123 @@ const StudentManagement: React.FC = () => {
       throw new Error("No recipients selected");
     }
 
-    // Assuming your table is "student_data" and id column is "id"
-    const { data, error } = await supabase
+    // Create notification object
+    const notification = {
+      id: Date.now().toString(),
+      title: "Student Management Notification",
+      message: message,
+      type: "info",
+      timestamp: new Date().toISOString(),
+      read: false,
+    };
+
+    // Get selected students' emails from student_data
+    const { data: selectedStudents, error: studentError } = await supabase
       .from("student_data")
-      .update({ notification: message })
+      .select("email")
       .in("id", studentIds);
 
-    if (error) throw new Error(error.message);
-    return data;
+    if (studentError) throw new Error(studentError.message);
+
+    if (!selectedStudents || selectedStudents.length === 0) {
+      throw new Error("No students found");
+    }
+
+    const studentEmails = selectedStudents.map((s) => s.email);
+
+    // Find corresponding users by email
+    const { data: users, error: fetchError } = await supabase
+      .from("users")
+      .select("id, notifications")
+      .in("email", studentEmails);
+
+    if (fetchError) throw new Error(fetchError.message);
+
+    if (!users || users.length === 0) {
+      throw new Error("No matching users found for selected students");
+    }
+
+    // Update each user's notifications
+    const updatePromises = users.map((user) => {
+      const currentNotifications = user.notifications || [];
+      const updatedNotifications = [notification, ...currentNotifications];
+
+      return supabase
+        .from("users")
+        .update({ notifications: updatedNotifications })
+        .eq("id", user.id);
+    });
+
+    const results = await Promise.all(updatePromises);
+    const errors = results.filter((result) => result.error);
+
+    if (errors.length > 0) {
+      throw new Error(`Failed to update ${errors.length} users`);
+    }
+
+    return results;
   };
 
   // Removed duplicate handleSendNotification function
   // Add notification options
   const notificationOptions = [
-    "New Event",
-    "Join Now New Club",
+    "New Event Available",
+    "Join New Club - Registration Open",
     "Exam Schedule Released",
     "Holiday Announcement",
+    "Academic Calendar Update",
+    "Important Deadline Reminder",
+    "Course Registration Open",
+    "Library Hours Changed",
+    "Campus Facility Update",
+    "Student Services Announcement",
+    "Scholarship Opportunity",
+    "Career Fair Announcement",
   ];
 
   // Function to update notification for all students using Supabase
   const updateNotificationForAll = async (message: string) => {
-    const { data, error } = await supabase
-      .from("student_data")
-      .update({ notification: message })
-      .not("id", "is", null); // ensures all rows are matched
+    // Create notification object
+    const notification = {
+      id: Date.now().toString(),
+      title: "Student Management Notification",
+      message: message,
+      type: "info",
+      timestamp: new Date().toISOString(),
+      read: false,
+    };
 
-    if (error) throw new Error(error.message);
-    return data;
+    // Get all users with student role
+    const { data: users, error: fetchError } = await supabase
+      .from("users")
+      .select("id, notifications")
+      .eq("role", "student");
+
+    if (fetchError) throw new Error(fetchError.message);
+
+    if (!users || users.length === 0) {
+      throw new Error("No students found");
+    }
+
+    // Update each student's notifications
+    const updatePromises = users.map((user) => {
+      const currentNotifications = user.notifications || [];
+      const updatedNotifications = [notification, ...currentNotifications];
+
+      return supabase
+        .from("users")
+        .update({ notifications: updatedNotifications })
+        .eq("id", user.id);
+    });
+
+    const results = await Promise.all(updatePromises);
+    const errors = results.filter((result) => result.error);
+
+    if (errors.length > 0) {
+      throw new Error(`Failed to update ${errors.length} students`);
+    }
+
+    return results;
   };
 
   // New function to send notification

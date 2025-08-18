@@ -19,11 +19,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
-import { useClubApplication } from "@/hooks/useClubApplication";
-import { useClubApplicationFiles } from "@/hooks/useClubApplicationFiles";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { useClubs } from "@/hooks/useDatabase";
-import { Club } from "@/lib/supabase";
+import { Club, supabase } from "@/lib/supabase";
 
 const JoinClub = () => {
   const { id } = useParams();
@@ -31,12 +29,6 @@ const JoinClub = () => {
   const { toast } = useToast();
   const { user, isAuthenticated } = useAuth();
   const { clubs } = useClubs();
-  const {
-    createApplication,
-    loading: applicationLoading,
-    checkExistingApplication,
-  } = useClubApplication();
-  const { uploadFile, uploading: fileUploading } = useClubApplicationFiles();
 
   const [applicationData, setApplicationData] = useState({
     motivation: "",
@@ -78,26 +70,17 @@ const JoinClub = () => {
     }
   }, [clubs, id]);
 
-  // Check if already applied
+  // Simplified - no need to check existing applications
   useEffect(() => {
-    const checkApplication = async () => {
-      if (!user || !id) return;
-      try {
-        const hasApplied = await checkExistingApplication(id);
-        setHasExistingApplication(hasApplied);
-      } catch (error) {
-        console.error("Error checking application:", error);
-      } finally {
-        setCheckingExisting(false);
-      }
-    };
-
-    if (isAuthenticated) {
-      checkApplication();
-    } else {
-      setCheckingExisting(false);
-    }
-  }, [user, id, isAuthenticated, checkExistingApplication]);
+    console.log(
+      "JoinClub - User authenticated:",
+      isAuthenticated,
+      "User ID:",
+      user?.id
+    );
+    setCheckingExisting(false);
+    setHasExistingApplication(false); // Always allow applications for now
+  }, [user, id, isAuthenticated]);
 
   const handleInputChange = (
     field: string,
@@ -110,86 +93,111 @@ const JoinClub = () => {
   //   setApplicationData((prev) => ({ ...prev, [field]: file }));
   // }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleNewMemberRequest = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to submit your application.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!id) {
-      toast({
-        title: "Error",
-        description: "Club ID is missing.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!applicationData.motivation.trim()) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in your motivation.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!applicationData.availability.trim()) {
-      toast({
-        title: "Missing Information",
-        description: "Please describe your availability.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!applicationData.agreeToTerms) {
-      toast({
-        title: "Agreement Required",
-        description: "Please agree to the terms and conditions.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setSubmitting(true);
-
     try {
-      // Create application payload (hook will add applicant_id and other fields)
-      const applicationPayload = {
-        club_id: id,
-        motivation: applicationData.motivation,
-        experience: applicationData.experience || null,
-        skills: applicationData.skills || null,
-        availability: applicationData.availability,
-        expectations: applicationData.expectations || null,
-        agreed_to_terms: applicationData.agreeToTerms,
-      };
+      // Basic validation
+      if (!user) {
+        toast({
+          title: "Authentication Required",
+          description: "Please sign in to submit your application.",
+          variant: "destructive",
+        });
+        return;
+      }
 
-      const result = await createApplication(applicationPayload);
+      if (!id) {
+        toast({
+          title: "Error",
+          description: "Club ID is missing.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (
+        !applicationData.motivation.trim() ||
+        !applicationData.availability.trim()
+      ) {
+        toast({
+          title: "Missing Information",
+          description: "Please fill in all required fields.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!applicationData.agreeToTerms) {
+        toast({
+          title: "Agreement Required",
+          description: "Please agree to the terms and conditions.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setSubmitting(true);
+
+      // Check if already applied
+      const { data: existingApplication } = await supabase
+        .from("club_membership_application")
+        .select("id, status")
+        .eq("club_id", id)
+        .eq("applicant_id", user.id)
+        .single();
+
+      if (existingApplication) {
+        toast({
+          title: "Already Applied",
+          description: `You have already applied to this club. Status: ${existingApplication.status}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Direct insert to Supabase
+      const { error } = await supabase
+        .from("club_membership_application")
+        .insert([
+          {
+            club_id: id,
+            applicant_id: user.id,
+            motivation: applicationData.motivation,
+            experience: applicationData.experience || null,
+            skills: applicationData.skills || null,
+            availability: applicationData.availability,
+            expectations: applicationData.expectations || null,
+            status: "pending",
+            application_date: new Date().toISOString(),
+            agreed_to_terms: applicationData.agreeToTerms,
+          },
+        ]);
+
+      if (error) throw error;
+
+      // Reset form
+      setApplicationData({
+        motivation: "",
+        experience: "",
+        skills: "",
+        availability: "",
+        expectations: "",
+        agreeToTerms: false,
+      });
 
       toast({
         title: "Application Submitted!",
-        description:
-          "Your application has been submitted successfully. You will be notified about the status.",
+        description: `Your application to join ${currentClub?.name} has been submitted successfully.`,
       });
 
       navigate("/clubs");
-    } catch (error) {
+    } catch (error: any) {
       console.error("Application submission error:", error);
-
       toast({
         title: "Submission Failed",
         description:
-          error instanceof Error
-            ? error.message
-            : "Failed to submit application. Please try again.",
+          error.message || "Failed to submit application. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -345,7 +353,7 @@ const JoinClub = () => {
                 </p>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleNewMemberRequest} className="space-y-6">
                 {/* Motivation */}
                 <div className="space-y-2">
                   <Label htmlFor="motivation">
@@ -443,16 +451,12 @@ const JoinClub = () => {
                     type="submit"
                     size="lg"
                     className="flex-1"
-                    disabled={
-                      !applicationData.agreeToTerms ||
-                      submitting ||
-                      fileUploading
-                    }
+                    disabled={!applicationData.agreeToTerms || submitting}
                   >
-                    {submitting || fileUploading ? (
+                    {submitting ? (
                       <>
                         <LoadingSpinner />
-                        {fileUploading ? "Uploading..." : "Submitting..."}
+                        Submitting...
                       </>
                     ) : (
                       "Submit Application"

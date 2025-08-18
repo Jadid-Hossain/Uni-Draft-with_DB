@@ -3,36 +3,82 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useAuth } from "@/context/AuthContext";
-import { Camera, Edit, Save, Mail, Phone, MapPin, Calendar, BookOpen, Users, Award, Upload, X, Trash2, Loader } from "lucide-react";
+import {
+  Camera,
+  Edit,
+  Save,
+  Mail,
+  Phone,
+  MapPin,
+  Calendar,
+  BookOpen,
+  Users,
+  Award,
+  Upload,
+  X,
+  Trash2,
+  Loader,
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+} from "lucide-react";
 import Layout from "@/components/Layout";
 import { useToast } from "@/hooks/use-toast";
 import { useUserEvents } from "@/hooks/useUserEvents";
 import { useProfileImage } from "@/hooks/useProfileImage";
 import { useProfile } from "@/hooks/useProfile";
+import { useUserClubApplications } from "@/hooks/useUserClubApplications";
 
 const Profile = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { events: userEvents, loading: eventsLoading } = useUserEvents();
-  const { uploadProfileImage, deleteProfileImage, uploading, error: uploadError } = useProfileImage();
-  const { profile, loading: profileLoading, error: profileError, updateProfile, updateAvatar, getFormData } = useProfile();
+  const {
+    uploadProfileImage,
+    deleteProfileImage,
+    uploading,
+    error: uploadError,
+  } = useProfileImage();
+  const {
+    profile,
+    loading: profileLoading,
+    error: profileError,
+    updateProfile,
+    updateAvatar,
+    getFormData,
+  } = useProfile();
+  const { applications: clubApplications, loading: applicationsLoading } =
+    useUserClubApplications();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  
+
   // Initialize form data from profile
   const [formData, setFormData] = useState(() => getFormData());
 
-    // Hide profile page for admin users
-  if (user?.role === 'admin') {
+  // Hide profile page for admin users
+  if (user?.role === "admin") {
     return (
       <Layout>
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20 pt-20">
@@ -43,13 +89,13 @@ const Profile = () => {
                 Administrator Account
               </CardTitle>
               <CardDescription>
-                Profile management is not available for administrator accounts. 
+                Profile management is not available for administrator accounts.
                 Use the admin dashboard to manage users and system settings.
               </CardDescription>
             </CardHeader>
             <CardContent className="text-center">
-              <Button 
-                onClick={() => window.location.href = '/admin'}
+              <Button
+                onClick={() => (window.location.href = "/admin")}
                 className="w-full"
               >
                 Go to Admin Dashboard
@@ -69,7 +115,7 @@ const Profile = () => {
     }
   }, [profile]);
 
-  // Load profile image on component mount  
+  // Load profile image on component mount
   useEffect(() => {
     const loadProfileImage = async () => {
       if (user?.id && profile?.avatar_url) {
@@ -91,12 +137,13 @@ const Profile = () => {
           description: "Your profile has been successfully updated.",
         });
       } else {
-        throw new Error(profileError || 'Failed to update profile');
+        throw new Error(profileError || "Failed to update profile");
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to update profile.",
+        description:
+          error instanceof Error ? error.message : "Failed to update profile.",
         variant: "destructive",
       });
     } finally {
@@ -105,10 +152,12 @@ const Profile = () => {
   };
 
   const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -130,7 +179,8 @@ const Profile = () => {
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to upload image.",
+        description:
+          error instanceof Error ? error.message : "Failed to upload image.",
         variant: "destructive",
       });
     }
@@ -141,7 +191,7 @@ const Profile = () => {
       const success = await deleteProfileImage();
       if (success) {
         // Update the database to remove avatar URL
-        await updateAvatar('');
+        await updateAvatar("");
         setProfileImage(null);
         toast({
           title: "Success!",
@@ -153,18 +203,51 @@ const Profile = () => {
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to remove profile picture.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to remove profile picture.",
         variant: "destructive",
       });
     }
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
+    return new Date(dateString).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "pending":
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+      case "approved":
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case "rejected":
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case "withdrawn":
+        return <AlertCircle className="h-4 w-4 text-gray-500" />;
+      default:
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "approved":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "rejected":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "withdrawn":
+        return "bg-gray-100 text-gray-800 border-gray-200";
+      default:
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+    }
   };
 
   return (
@@ -177,12 +260,19 @@ const Profile = () => {
               <div className="flex flex-col md:flex-row items-center md:items-start space-y-6 md:space-y-0 md:space-x-8">
                 <div className="relative">
                   <Avatar className="h-32 w-32 border-4 border-primary/20">
-                    <AvatarImage src={profileImage || undefined} alt={formData.name} />
+                    <AvatarImage
+                      src={profileImage || undefined}
+                      alt={formData.name}
+                    />
                     <AvatarFallback className="bg-gradient-primary text-primary-foreground text-3xl font-bold">
-                      {formData.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                      {formData.name
+                        ?.split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .toUpperCase() || "U"}
                     </AvatarFallback>
                   </Avatar>
-                  
+
                   {/* Image Upload Controls */}
                   <div className="absolute bottom-0 right-0 flex gap-1">
                     <Button
@@ -198,7 +288,7 @@ const Profile = () => {
                         <Camera className="h-4 w-4" />
                       )}
                     </Button>
-                    
+
                     {profileImage && (
                       <Button
                         size="icon"
@@ -211,7 +301,7 @@ const Profile = () => {
                       </Button>
                     )}
                   </div>
-                  
+
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -219,29 +309,44 @@ const Profile = () => {
                     onChange={handleImageUpload}
                     className="hidden"
                   />
-                  
+
                   {/* Upload notice */}
                   <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-muted-foreground text-center whitespace-nowrap">
                     Max 100KB
                   </div>
                 </div>
-                
+
                 <div className="flex-1 text-center md:text-left">
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
                     <div>
-                      <h1 className="text-3xl font-bold text-foreground mb-2">{formData.name}</h1>
-                      <p className="text-muted-foreground mb-2">{formData.department} • {formData.year}</p>
+                      <h1 className="text-3xl font-bold text-foreground mb-2">
+                        {formData.name}
+                      </h1>
+                      <p className="text-muted-foreground mb-2">
+                        {formData.department} • {formData.year}
+                      </p>
                       <div className="flex flex-wrap justify-center md:justify-start gap-2 mb-4">
-                        <Badge variant="secondary" className="bg-primary/10 text-primary">
+                        <Badge
+                          variant="secondary"
+                          className="bg-primary/10 text-primary"
+                        >
                           GPA: {formData.gpa}
                         </Badge>
-                        <Badge variant="secondary" className="bg-success/10 text-success">
-                          {user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : 'Student'}
+                        <Badge
+                          variant="secondary"
+                          className="bg-success/10 text-success"
+                        >
+                          {user?.role
+                            ? user.role.charAt(0).toUpperCase() +
+                              user.role.slice(1)
+                            : "Student"}
                         </Badge>
                       </div>
                     </div>
-                    <Button 
-                      onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+                    <Button
+                      onClick={() =>
+                        isEditing ? handleSave() : setIsEditing(true)
+                      }
                       variant={isEditing ? "success" : "outline"}
                       disabled={saving || profileLoading}
                       className="w-full md:w-auto"
@@ -264,7 +369,7 @@ const Profile = () => {
                       )}
                     </Button>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center justify-center md:justify-start">
                       <Mail className="mr-2 h-4 w-4" />
@@ -306,12 +411,14 @@ const Profile = () => {
                   {isEditing ? (
                     <Textarea
                       value={formData.bio}
-                      onChange={(e) => handleInputChange('bio', e.target.value)}
+                      onChange={(e) => handleInputChange("bio", e.target.value)}
                       placeholder="Tell us about yourself..."
                       className="min-h-[100px]"
                     />
                   ) : (
-                    <p className="text-muted-foreground leading-relaxed">{formData.bio}</p>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {formData.bio}
+                    </p>
                   )}
                 </CardContent>
               </Card>
@@ -324,7 +431,11 @@ const Profile = () => {
                   <CardContent>
                     <div className="flex flex-wrap gap-2">
                       {formData.interests.map((interest) => (
-                        <Badge key={interest} variant="outline" className="hover:bg-primary hover:text-primary-foreground transition-colors">
+                        <Badge
+                          key={interest}
+                          variant="outline"
+                          className="hover:bg-primary hover:text-primary-foreground transition-colors"
+                        >
                           {interest}
                         </Badge>
                       ))}
@@ -342,7 +453,10 @@ const Profile = () => {
                   <CardContent>
                     <ul className="space-y-2">
                       {formData.achievements.map((achievement) => (
-                        <li key={achievement} className="flex items-center text-sm">
+                        <li
+                          key={achievement}
+                          className="flex items-center text-sm"
+                        >
                           <div className="h-2 w-2 rounded-full bg-primary mr-3" />
                           {achievement}
                         </li>
@@ -364,20 +478,35 @@ const Profile = () => {
                     <div>
                       <Label htmlFor="department">Department</Label>
                       {isEditing ? (
-                        <Select value={formData.department} onValueChange={(value) => handleInputChange('department', value)}>
+                        <Select
+                          value={formData.department}
+                          onValueChange={(value) =>
+                            handleInputChange("department", value)
+                          }
+                        >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Computer Science">Computer Science</SelectItem>
-                            <SelectItem value="Electrical Engineering">Electrical Engineering</SelectItem>
-                            <SelectItem value="Business Administration">Business Administration</SelectItem>
+                            <SelectItem value="Computer Science">
+                              Computer Science
+                            </SelectItem>
+                            <SelectItem value="Electrical Engineering">
+                              Electrical Engineering
+                            </SelectItem>
+                            <SelectItem value="Business Administration">
+                              Business Administration
+                            </SelectItem>
                             <SelectItem value="Economics">Economics</SelectItem>
-                            <SelectItem value="Mathematics">Mathematics</SelectItem>
+                            <SelectItem value="Mathematics">
+                              Mathematics
+                            </SelectItem>
                             <SelectItem value="Physics">Physics</SelectItem>
                             <SelectItem value="Chemistry">Chemistry</SelectItem>
                             <SelectItem value="English">English</SelectItem>
-                            <SelectItem value="Architecture">Architecture</SelectItem>
+                            <SelectItem value="Architecture">
+                              Architecture
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                       ) : (
@@ -387,7 +516,12 @@ const Profile = () => {
                     <div>
                       <Label htmlFor="year">Academic Year</Label>
                       {isEditing ? (
-                        <Select value={formData.year} onValueChange={(value) => handleInputChange('year', value)}>
+                        <Select
+                          value={formData.year}
+                          onValueChange={(value) =>
+                            handleInputChange("year", value)
+                          }
+                        >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -407,7 +541,9 @@ const Profile = () => {
                       {isEditing ? (
                         <Input
                           value={formData.gpa}
-                          onChange={(e) => handleInputChange('gpa', e.target.value)}
+                          onChange={(e) =>
+                            handleInputChange("gpa", e.target.value)
+                          }
                           placeholder="3.50"
                         />
                       ) : (
@@ -415,11 +551,14 @@ const Profile = () => {
                       )}
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
                     <div>
                       <Label>Student ID</Label>
-                      <Input value={user?.student_id || 'Not Available'} readOnly />
+                      <Input
+                        value={user?.student_id || "Not Available"}
+                        readOnly
+                      />
                     </div>
                     <div>
                       <Label>Email</Label>
@@ -449,10 +588,15 @@ const Profile = () => {
                     ) : userEvents.length > 0 ? (
                       <div className="space-y-4">
                         {userEvents.map((event) => (
-                          <div key={event.id} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
+                          <div
+                            key={event.id}
+                            className="p-4 border rounded-lg hover:shadow-md transition-shadow"
+                          >
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
-                                <h4 className="font-semibold mb-1">{event.title}</h4>
+                                <h4 className="font-semibold mb-1">
+                                  {event.title}
+                                </h4>
                                 <p className="text-sm text-muted-foreground mb-2">
                                   {formatDate(event.start_at)}
                                 </p>
@@ -463,15 +607,23 @@ const Profile = () => {
                                   </p>
                                 )}
                               </div>
-                              <Badge 
-                                variant={event.registration_status === 'registered' ? 'default' : 'secondary'}
+                              <Badge
+                                variant={
+                                  event.registration_status === "registered"
+                                    ? "default"
+                                    : "secondary"
+                                }
                                 className="ml-2"
                               >
                                 {event.registration_status}
                               </Badge>
                             </div>
-                            <Badge 
-                              variant={event.status === 'completed' ? 'outline' : 'secondary'} 
+                            <Badge
+                              variant={
+                                event.status === "completed"
+                                  ? "outline"
+                                  : "secondary"
+                              }
                               className="mt-2"
                             >
                               {event.status}
@@ -482,7 +634,9 @@ const Profile = () => {
                     ) : (
                       <div className="text-center py-8">
                         <Calendar className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                        <p className="text-muted-foreground">No events joined yet</p>
+                        <p className="text-muted-foreground">
+                          No events joined yet
+                        </p>
                         <p className="text-sm text-muted-foreground mt-2">
                           Join some events to see them here!
                         </p>
@@ -491,24 +645,91 @@ const Profile = () => {
                   </CardContent>
                 </Card>
 
-                {/* Club Memberships */}
+                {/* Club Applications */}
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center">
                       <Users className="mr-2 h-5 w-5" />
-                      Club Memberships
+                      Club Applications
                     </CardTitle>
+                    <CardDescription>
+                      Your club membership applications and their status
+                    </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      {formData.clubs.map((club) => (
-                        <div key={club} className="p-4 border rounded-lg hover:shadow-md transition-shadow">
-                          <h4 className="font-semibold mb-2">{club}</h4>
-                          <p className="text-sm text-muted-foreground">Active Member</p>
-                          <Badge variant="secondary" className="mt-2">2023-Present</Badge>
-                        </div>
-                      ))}
-                    </div>
+                    {applicationsLoading ? (
+                      <div className="flex items-center justify-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                      </div>
+                    ) : clubApplications.length > 0 ? (
+                      <div className="space-y-4">
+                        {clubApplications.map((application) => (
+                          <div
+                            key={application.id}
+                            className="p-4 border rounded-lg hover:shadow-md transition-shadow"
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1">
+                                <h4 className="font-semibold mb-1">
+                                  {application.club_name}
+                                </h4>
+                                <p className="text-sm text-muted-foreground mb-2">
+                                  Applied on{" "}
+                                  {formatDate(application.application_date)}
+                                </p>
+                                <p className="text-xs text-muted-foreground line-clamp-2">
+                                  {application.motivation}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-2 ml-4">
+                                {getStatusIcon(application.status)}
+                                <Badge
+                                  className={getStatusColor(application.status)}
+                                  variant="outline"
+                                >
+                                  {application.status.charAt(0).toUpperCase() +
+                                    application.status.slice(1)}
+                                </Badge>
+                              </div>
+                            </div>
+
+                            {application.experience && (
+                              <div className="mt-2 pt-2 border-t">
+                                <p className="text-xs text-muted-foreground">
+                                  <strong>Experience:</strong>{" "}
+                                  {application.experience}
+                                </p>
+                              </div>
+                            )}
+
+                            {application.skills && (
+                              <div className="mt-1">
+                                <p className="text-xs text-muted-foreground">
+                                  <strong>Skills:</strong> {application.skills}
+                                </p>
+                              </div>
+                            )}
+
+                            <div className="mt-2">
+                              <p className="text-xs text-muted-foreground">
+                                <strong>Availability:</strong>{" "}
+                                {application.availability}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Users className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                        <p className="text-muted-foreground">
+                          No club applications yet
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Apply to some clubs to see them here!
+                        </p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -527,7 +748,9 @@ const Profile = () => {
                       <Label htmlFor="email">Email</Label>
                       <Input
                         value={formData.email}
-                        onChange={(e) => handleInputChange('email', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("email", e.target.value)
+                        }
                         disabled={!isEditing}
                       />
                     </div>
@@ -535,7 +758,9 @@ const Profile = () => {
                       <Label htmlFor="phone">Phone</Label>
                       <Input
                         value={formData.phone}
-                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        onChange={(e) =>
+                          handleInputChange("phone", e.target.value)
+                        }
                         disabled={!isEditing}
                       />
                     </div>
@@ -544,7 +769,9 @@ const Profile = () => {
                     <Label htmlFor="location">Location</Label>
                     <Input
                       value={formData.location}
-                      onChange={(e) => handleInputChange('location', e.target.value)}
+                      onChange={(e) =>
+                        handleInputChange("location", e.target.value)
+                      }
                       disabled={!isEditing}
                     />
                   </div>
