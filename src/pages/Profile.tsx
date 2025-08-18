@@ -40,32 +40,22 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  Bell,
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { useToast } from "@/hooks/use-toast";
 import { useUserEvents } from "@/hooks/useUserEvents";
-import { useProfileImage } from "@/hooks/useProfileImage";
-import { useProfile } from "@/hooks/useProfile";
 import { useUserClubApplications } from "@/hooks/useUserClubApplications";
+import { supabase } from "@/lib/supabase";
 
 const Profile = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const { events: userEvents, loading: eventsLoading } = useUserEvents();
-  const {
-    uploadProfileImage,
-    deleteProfileImage,
-    uploading,
-    error: uploadError,
-  } = useProfileImage();
-  const {
-    profile,
-    loading: profileLoading,
-    error: profileError,
-    updateProfile,
-    updateAvatar,
-    getFormData,
-  } = useProfile();
+  const [userData, setUserData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const { applications: clubApplications, loading: applicationsLoading } =
     useUserClubApplications();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -73,9 +63,196 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const notificationsRef = useRef<HTMLDivElement>(null);
 
-  // Initialize form data from profile
-  const [formData, setFormData] = useState(() => getFormData());
+  // Initialize form data from user data
+  const [formData, setFormData] = useState({
+    full_name: "",
+    username: "",
+    email: "",
+    phone: "",
+    address: "",
+    department: "",
+    year: "",
+    gpa: "",
+    student_id: "",
+    date_of_birth: "",
+    bio: "",
+    interests: "",
+    achievements: "",
+  });
+
+  // Fetch user data from users table
+  const fetchUserData = async () => {
+    if (!user?.id) return;
+
+    try {
+      setLoading(true);
+      console.log("Fetching user data for ID:", user.id);
+
+      // Try to fetch from users table first
+      let { data, error } = await supabase
+        .from("users")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      // If that fails, try manual_users table as fallback
+      if (error) {
+        console.log("Error with users table:", error);
+        if (error.code === "PGRST116" || error.code === "PGRST204") {
+          console.log("Trying manual_users table as fallback...");
+          const fallbackResult = await supabase
+            .from("manual_users")
+            .select("*")
+            .eq("id", user.id)
+            .single();
+
+          data = fallbackResult.data;
+          error = fallbackResult.error;
+        }
+      }
+
+      console.log("Supabase response:", { data, error });
+
+      if (error) {
+        console.error("Supabase error:", error);
+        setError(error.message);
+        return;
+      }
+
+      setUserData(data);
+      setFormData({
+        full_name: data.full_name || "",
+        username: data.username || "",
+        email: data.email || "",
+        phone: data.phone || "",
+        address: data.address || "",
+        department: data.department || "",
+        year: data.year || "",
+        gpa: data.gpa || "",
+        student_id: data.student_id || "",
+        date_of_birth: data.date_of_birth || "",
+        bio: data.bio || "",
+        interests: data.interests || "",
+        achievements: data.achievements || "",
+      });
+      setProfileImage(data.avatar_url || null);
+    } catch (err) {
+      console.error("Error in fetchUserData:", err);
+      setError("Failed to fetch user data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update user data in users table
+  const updateUserData = async (data: any) => {
+    if (!user?.id) return false;
+
+    try {
+      // Sanitize payload: remove empty-string fields and coerce dates
+      const sanitizedData: Record<string, any> = {};
+      Object.entries(data).forEach(([key, value]) => {
+        if (value === "") {
+          // Skip empty strings to avoid type errors (e.g., date fields)
+          return;
+        }
+        // Pass through other values
+        sanitizedData[key] = value;
+      });
+
+      // Try to update users table first
+      let { error } = await supabase
+        .from("users")
+        .update(sanitizedData)
+        .eq("id", user.id);
+
+      // If that fails, try manual_users table as fallback
+      if (error) {
+        console.log("Error updating users table:", error);
+        if (error.code === "PGRST116" || error.code === "PGRST204") {
+          console.log("Trying to update manual_users table as fallback...");
+          const fallbackResult = await supabase
+            .from("manual_users")
+            .update(sanitizedData)
+            .eq("id", user.id);
+
+          error = fallbackResult.error;
+        }
+      }
+
+      if (error) {
+        setError(error.message);
+        return false;
+      }
+
+      await fetchUserData(); // Refresh data
+      return true;
+    } catch (err) {
+      setError("Failed to update user data");
+      return false;
+    }
+  };
+
+  // Upload profile image
+  const uploadProfileImage = async (file: File) => {
+    if (!user?.id) return null;
+
+    try {
+      setUploading(true);
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("avatars").getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (err) {
+      setError("Failed to upload image");
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Delete profile image
+  const deleteProfileImage = async () => {
+    if (!user?.id || !profileImage) return false;
+
+    try {
+      // Extract file path from URL
+      const urlParts = profileImage.split("/");
+      const fileName = urlParts[urlParts.length - 1];
+      const filePath = `avatars/${fileName}`;
+
+      const { error } = await supabase.storage
+        .from("avatars")
+        .remove([filePath]);
+
+      if (error) {
+        throw error;
+      }
+
+      return true;
+    } catch (err) {
+      setError("Failed to delete image");
+      return false;
+    }
+  };
 
   // Hide profile page for admin users
   if (user?.role === "admin") {
@@ -107,29 +284,181 @@ const Profile = () => {
     );
   }
 
-  // Update form data when profile loads
+  // Load user data on component mount
   useEffect(() => {
-    if (profile) {
-      setFormData(getFormData());
-      setProfileImage(profile.avatar_url || null);
-    }
-  }, [profile]);
+    fetchUserData();
+  }, [user?.id]);
 
-  // Load profile image on component mount
+  // Fetch notifications when userData changes
   useEffect(() => {
-    const loadProfileImage = async () => {
-      if (user?.id && profile?.avatar_url) {
-        setProfileImage(profile.avatar_url);
+    if (userData) {
+      fetchNotifications();
+    }
+  }, [userData]);
+
+  // Handle clicking outside notifications dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        notificationsRef.current &&
+        !notificationsRef.current.contains(event.target as Node)
+      ) {
+        setShowNotifications(false);
       }
     };
 
-    loadProfileImage();
-  }, [user?.id, profile?.avatar_url]);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // Fetch notifications from user data
+  const fetchNotifications = async () => {
+    if (!userData?.notifications) return;
+
+    try {
+      let notificationData = userData.notifications;
+
+      // Handle corrupted JSON data
+      if (typeof notificationData === "string") {
+        try {
+          notificationData = JSON.parse(notificationData);
+        } catch (parseError) {
+          console.error("Error parsing notifications:", parseError);
+          // Try to clean corrupted data
+          notificationData = [];
+        }
+      }
+
+      // Ensure it's an array and filter out invalid notifications
+      if (Array.isArray(notificationData)) {
+        // Filter out invalid notifications - only keep properly formatted ones
+        const validNotifications = notificationData.filter(
+          (notification: any) => {
+            // Check if notification has all required fields and valid structure
+            return (
+              notification &&
+              typeof notification === "object" &&
+              notification.id &&
+              notification.title &&
+              notification.message &&
+              notification.type &&
+              notification.timestamp &&
+              typeof notification.read === "boolean" &&
+              // Validate timestamp format
+              !isNaN(new Date(notification.timestamp).getTime()) &&
+              // Validate type is one of the expected values
+              ["info", "success", "warning", "error"].includes(
+                notification.type
+              )
+            );
+          }
+        );
+
+        console.log("Valid notifications found:", validNotifications.length);
+        console.log(
+          "Invalid notifications filtered out:",
+          notificationData.length - validNotifications.length
+        );
+
+        // If we found corrupted data, clean it up in the database
+        if (validNotifications.length < notificationData.length) {
+          console.log("Cleaning up corrupted notifications in database...");
+          // Update the database with only valid notifications
+          updateUserData({ notifications: validNotifications }).catch((err) => {
+            console.error("Error cleaning up notifications:", err);
+          });
+        }
+
+        setNotifications(validNotifications);
+        const unread = validNotifications.filter((n: any) => !n.read).length;
+        setUnreadCount(unread);
+      } else {
+        setNotifications([]);
+        setUnreadCount(0);
+      }
+    } catch (err) {
+      console.error("Error processing notifications:", err);
+      setNotifications([]);
+      setUnreadCount(0);
+    }
+  };
+
+  // Mark notification as read
+  const markAsRead = async (notificationId: string) => {
+    if (!user?.id) return;
+
+    try {
+      const updatedNotifications = notifications.map((n: any) =>
+        n.id === notificationId ? { ...n, read: true } : n
+      );
+
+      const success = await updateUserData({
+        notifications: updatedNotifications,
+      });
+      if (success) {
+        setNotifications(updatedNotifications);
+        const unread = updatedNotifications.filter((n: any) => !n.read).length;
+        setUnreadCount(unread);
+      }
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    }
+  };
+
+  // Mark all notifications as read
+  const markAllAsRead = async () => {
+    if (!user?.id) return;
+
+    try {
+      const updatedNotifications = notifications.map((n: any) => ({
+        ...n,
+        read: true,
+      }));
+
+      const success = await updateUserData({
+        notifications: updatedNotifications,
+      });
+      if (success) {
+        setNotifications(updatedNotifications);
+        setUnreadCount(0);
+      }
+    } catch (err) {
+      console.error("Error marking all notifications as read:", err);
+    }
+  };
+
+  // Clean up corrupted notifications manually
+  const cleanupCorruptedNotifications = async () => {
+    if (!user?.id) return;
+
+    try {
+      console.log("Manual cleanup of corrupted notifications...");
+      // Set to empty array to clear all corrupted data
+      const success = await updateUserData({ notifications: [] });
+      if (success) {
+        setNotifications([]);
+        setUnreadCount(0);
+        toast({
+          title: "Notifications Cleaned",
+          description: "Corrupted notifications have been removed.",
+        });
+      }
+    } catch (err) {
+      console.error("Error cleaning up notifications:", err);
+      toast({
+        title: "Error",
+        description: "Failed to clean up notifications.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const success = await updateProfile(formData);
+      const success = await updateUserData(formData);
       if (success) {
         setIsEditing(false);
         toast({
@@ -137,7 +466,7 @@ const Profile = () => {
           description: "Your profile has been successfully updated.",
         });
       } else {
-        throw new Error(profileError || "Failed to update profile");
+        throw new Error(error || "Failed to update profile");
       }
     } catch (error) {
       toast({
@@ -165,7 +494,7 @@ const Profile = () => {
       const imageUrl = await uploadProfileImage(file);
       if (imageUrl) {
         // Update the database with the new avatar URL
-        const success = await updateAvatar(imageUrl);
+        const success = await updateUserData({ avatar_url: imageUrl });
         if (success) {
           setProfileImage(imageUrl);
           toast({
@@ -191,7 +520,7 @@ const Profile = () => {
       const success = await deleteProfileImage();
       if (success) {
         // Update the database to remove avatar URL
-        await updateAvatar("");
+        await updateUserData({ avatar_url: "" });
         setProfileImage(null);
         toast({
           title: "Success!",
@@ -262,10 +591,10 @@ const Profile = () => {
                   <Avatar className="h-32 w-32 border-4 border-primary/20">
                     <AvatarImage
                       src={profileImage || undefined}
-                      alt={formData.name}
+                      alt={formData.full_name}
                     />
                     <AvatarFallback className="bg-gradient-primary text-primary-foreground text-3xl font-bold">
-                      {formData.name
+                      {formData.full_name
                         ?.split(" ")
                         .map((n) => n[0])
                         .join("")
@@ -320,7 +649,7 @@ const Profile = () => {
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
                     <div>
                       <h1 className="text-3xl font-bold text-foreground mb-2">
-                        {formData.name}
+                        {formData.full_name}
                       </h1>
                       <p className="text-muted-foreground mb-2">
                         {formData.department} • {formData.year}
@@ -343,31 +672,142 @@ const Profile = () => {
                         </Badge>
                       </div>
                     </div>
-                    <Button
-                      onClick={() =>
-                        isEditing ? handleSave() : setIsEditing(true)
-                      }
-                      variant={isEditing ? "success" : "outline"}
-                      disabled={saving || profileLoading}
-                      className="w-full md:w-auto"
-                    >
-                      {saving ? (
-                        <>
-                          <Loader className="mr-2 h-4 w-4 animate-spin" />
-                          Saving...
-                        </>
-                      ) : isEditing ? (
-                        <>
-                          <Save className="mr-2 h-4 w-4" />
-                          Save Changes
-                        </>
-                      ) : (
-                        <>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit Profile
-                        </>
-                      )}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {/* Notification Bell */}
+                      <div className="relative">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() =>
+                            setShowNotifications(!showNotifications)
+                          }
+                          className="relative"
+                        >
+                          <Bell className="h-5 w-5" />
+                          {unreadCount > 0 && (
+                            <span className="absolute -top-2 -right-2 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
+                              {unreadCount > 9 ? "9+" : unreadCount}
+                            </span>
+                          )}
+                        </Button>
+
+                        {/* Notifications Dropdown */}
+                        {showNotifications && (
+                          <div
+                            ref={notificationsRef}
+                            className="absolute right-0 top-12 w-80 bg-white border rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto"
+                          >
+                            <div className="p-3 border-b bg-gray-50">
+                              <div className="flex items-center justify-between">
+                                <h3 className="font-semibold">Notifications</h3>
+                                <div className="flex items-center gap-2">
+                                  {unreadCount > 0 && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={markAllAsRead}
+                                      className="text-xs"
+                                    >
+                                      Mark all as read
+                                    </Button>
+                                  )}
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={cleanupCorruptedNotifications}
+                                    className="text-xs text-red-600 hover:text-red-700"
+                                  >
+                                    Clean Corrupted
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="p-2">
+                              {notifications.length > 0 ? (
+                                notifications.map((notification: any) => (
+                                  <div
+                                    key={notification.id}
+                                    className={`p-3 rounded-lg mb-2 cursor-pointer transition-colors ${
+                                      notification.read
+                                        ? "bg-gray-50 hover:bg-gray-100"
+                                        : "bg-blue-50 hover:bg-blue-100 border-l-4 border-blue-500"
+                                    }`}
+                                    onClick={() => markAsRead(notification.id)}
+                                  >
+                                    <div className="flex items-start justify-between">
+                                      <div className="flex-1">
+                                        <h4 className="font-medium text-sm mb-1">
+                                          {notification.title}
+                                        </h4>
+                                        <p className="text-xs text-gray-600 mb-2">
+                                          {notification.message}
+                                        </p>
+                                        <div className="flex items-center gap-2">
+                                          <span
+                                            className={`text-xs px-2 py-1 rounded-full ${
+                                              notification.type === "info"
+                                                ? "bg-blue-100 text-blue-800"
+                                                : notification.type ===
+                                                  "success"
+                                                ? "bg-green-100 text-green-800"
+                                                : notification.type ===
+                                                  "warning"
+                                                ? "bg-yellow-100 text-yellow-800"
+                                                : "bg-red-100 text-red-800"
+                                            }`}
+                                          >
+                                            {notification.type}
+                                          </span>
+                                          <span className="text-xs text-gray-500">
+                                            {new Date(
+                                              notification.timestamp
+                                            ).toLocaleDateString()}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      {!notification.read && (
+                                        <div className="h-2 w-2 rounded-full bg-blue-500 ml-2"></div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))
+                              ) : (
+                                <div className="text-center py-6 text-gray-500">
+                                  <Bell className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                                  <p>No notifications</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <Button
+                        onClick={() =>
+                          isEditing ? handleSave() : setIsEditing(true)
+                        }
+                        variant={isEditing ? "success" : "outline"}
+                        disabled={saving || loading}
+                        className="w-full md:w-auto"
+                      >
+                        {saving ? (
+                          <>
+                            <Loader className="mr-2 h-4 w-4 animate-spin" />
+                            Saving...
+                          </>
+                        ) : isEditing ? (
+                          <>
+                            <Save className="mr-2 h-4 w-4" />
+                            Save Changes
+                          </>
+                        ) : (
+                          <>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit Profile
+                          </>
+                        )}
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-muted-foreground">
@@ -381,7 +821,7 @@ const Profile = () => {
                     </div>
                     <div className="flex items-center justify-center md:justify-start">
                       <MapPin className="mr-2 h-4 w-4" />
-                      {formData.location}
+                      {formData.address}
                     </div>
                   </div>
                 </div>
@@ -417,7 +857,7 @@ const Profile = () => {
                     />
                   ) : (
                     <p className="text-muted-foreground leading-relaxed">
-                      {formData.bio}
+                      {formData.bio || "No bio information available."}
                     </p>
                   )}
                 </CardContent>
@@ -429,17 +869,36 @@ const Profile = () => {
                     <CardTitle>Interests</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex flex-wrap gap-2">
-                      {formData.interests.map((interest) => (
-                        <Badge
-                          key={interest}
-                          variant="outline"
-                          className="hover:bg-primary hover:text-primary-foreground transition-colors"
-                        >
-                          {interest}
-                        </Badge>
-                      ))}
-                    </div>
+                    {isEditing ? (
+                      <Textarea
+                        value={formData.interests}
+                        onChange={(e) =>
+                          handleInputChange("interests", e.target.value)
+                        }
+                        placeholder="Enter your interests (comma separated)..."
+                        className="min-h-[100px]"
+                      />
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {formData.interests ? (
+                          formData.interests
+                            .split(",")
+                            .map((interest, index) => (
+                              <Badge
+                                key={index}
+                                variant="outline"
+                                className="hover:bg-primary hover:text-primary-foreground transition-colors"
+                              >
+                                {interest.trim()}
+                              </Badge>
+                            ))
+                        ) : (
+                          <p className="text-muted-foreground">
+                            No interests added yet.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -451,17 +910,37 @@ const Profile = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <ul className="space-y-2">
-                      {formData.achievements.map((achievement) => (
-                        <li
-                          key={achievement}
-                          className="flex items-center text-sm"
-                        >
-                          <div className="h-2 w-2 rounded-full bg-primary mr-3" />
-                          {achievement}
-                        </li>
-                      ))}
-                    </ul>
+                    {isEditing ? (
+                      <Textarea
+                        value={formData.achievements}
+                        onChange={(e) =>
+                          handleInputChange("achievements", e.target.value)
+                        }
+                        placeholder="Enter your achievements (one per line)..."
+                        className="min-h-[100px]"
+                      />
+                    ) : (
+                      <ul className="space-y-2">
+                        {formData.achievements ? (
+                          formData.achievements
+                            .split("\n")
+                            .filter((line) => line.trim())
+                            .map((achievement, index) => (
+                              <li
+                                key={index}
+                                className="flex items-center text-sm"
+                              >
+                                <div className="h-2 w-2 rounded-full bg-primary mr-3" />
+                                {achievement.trim()}
+                              </li>
+                            ))
+                        ) : (
+                          <li className="text-muted-foreground">
+                            No achievements added yet.
+                          </li>
+                        )}
+                      </ul>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -766,11 +1245,11 @@ const Profile = () => {
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="location">Location</Label>
+                    <Label htmlFor="address">Address</Label>
                     <Input
-                      value={formData.location}
+                      value={formData.address}
                       onChange={(e) =>
-                        handleInputChange("location", e.target.value)
+                        handleInputChange("address", e.target.value)
                       }
                       disabled={!isEditing}
                     />
