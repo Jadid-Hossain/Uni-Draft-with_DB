@@ -18,6 +18,7 @@ import JoinClub from "./pages/JoinClub";
 import EventRegistration from "./pages/EventRegistration";
 import Resources from "./pages/Resources";
 import LearnMore from "./pages/LearnMore";
+import ClubDashboard from "./pages/ClubDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -89,6 +90,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Chat />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/club-dashboard"
+              element={
+                <ProtectedRoute>
+                  <ClubDashboard />
                 </ProtectedRoute>
               }
             />
