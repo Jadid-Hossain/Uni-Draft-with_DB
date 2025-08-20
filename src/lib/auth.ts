@@ -12,6 +12,7 @@ export interface User {
   user_status: "pending" | "active" | "suspended" | "rejected";
   is_active: boolean;
   email_verified: boolean;
+  club_admin?: string; // Club ID if user is assigned as club admin
 }
 
 export type AppRole = "admin" | "faculty" | "student";
@@ -180,9 +181,28 @@ class AuthService {
 
       if (data?.success && data?.user) {
         console.log("AuthService - Signin successful, user data:", data.user);
-        const user: User = data.user;
+        let user: User = data.user;
 
-        // Just store the user data directly
+        // Fetch additional user data including club_admin field
+        try {
+          const { data: fullUserData, error: userError } = await supabase
+            .from("users")
+            .select("club_admin")
+            .eq("id", user.id)
+            .single();
+
+          if (!userError && fullUserData) {
+            user = { ...user, club_admin: fullUserData.club_admin };
+            console.log(
+              "AuthService - Fetched club_admin:",
+              fullUserData.club_admin
+            );
+          }
+        } catch (userFetchError) {
+          console.warn("Could not fetch additional user data:", userFetchError);
+        }
+
+        // Store the complete user data
         this.currentUser = user;
         if (data.session_token) {
           this.sessionToken = data.session_token;
@@ -196,7 +216,10 @@ class AuthService {
           this.saveToStorage(sessionData);
         }
 
-        console.log("AuthService - User data stored");
+        console.log(
+          "AuthService - Complete user data stored with club_admin:",
+          user.club_admin
+        );
         return {
           success: true,
           user,
@@ -291,6 +314,49 @@ class AuthService {
   // Check if user is student
   isStudent(): boolean {
     return this.hasRole("student");
+  }
+
+  // Refresh user data from database (useful after club admin assignments)
+  async refreshUserData(): Promise<void> {
+    if (!this.currentUser) return;
+
+    try {
+      const { data: fullUserData, error: userError } = await supabase
+        .from("users")
+        .select("club_admin, role, user_status, is_active")
+        .eq("id", this.currentUser.id)
+        .single();
+
+      if (!userError && fullUserData) {
+        // Update current user with fresh data
+        this.currentUser = {
+          ...this.currentUser,
+          club_admin: fullUserData.club_admin,
+          role: fullUserData.role,
+          user_status: fullUserData.user_status,
+          is_active: fullUserData.is_active,
+        };
+
+        // Update localStorage with fresh data
+        if (this.sessionToken) {
+          const sessionData: SessionData = {
+            user: this.currentUser,
+            session_token: this.sessionToken,
+            expires_at: new Date(
+              Date.now() + 7 * 24 * 60 * 60 * 1000
+            ).toISOString(),
+          };
+          this.saveToStorage(sessionData);
+        }
+
+        console.log(
+          "AuthService - User data refreshed, club_admin:",
+          this.currentUser.club_admin
+        );
+      }
+    } catch (error) {
+      console.error("Error refreshing user data:", error);
+    }
   }
 }
 

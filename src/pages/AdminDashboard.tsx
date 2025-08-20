@@ -50,6 +50,7 @@ import {
   Filter,
   Search,
   MoreVertical,
+  X,
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
@@ -261,6 +262,14 @@ const AdminDashboard = () => {
     requirements: "",
   });
 
+  // Club admin assignment state
+  const [showAssignAdminModal, setShowAssignAdminModal] = useState(false);
+  const [selectedClubForAdmin, setSelectedClubForAdmin] = useState<any>(null);
+  const [availableUsers, setAvailableUsers] = useState<any[]>([]);
+  const [assigningAdmin, setAssigningAdmin] = useState(false);
+  const [showRemoveAllAdminsModal, setShowRemoveAllAdminsModal] =
+    useState(false);
+
   // Club categories
   const clubCategories = [
     "Academic",
@@ -295,19 +304,75 @@ const AdminDashboard = () => {
       setClubsLoading(true);
       setClubsError(null);
 
-      const { data, error } = await supabase
+      // First fetch clubs
+      const { data: clubsData, error: clubsError } = await supabase
         .from("clubs")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Error fetching clubs:", error);
-        setClubsError(error.message);
+      if (clubsError) {
+        console.error("Error fetching clubs:", clubsError);
+        setClubsError(clubsError.message);
         return;
       }
 
-      console.log("Clubs fetched:", data);
-      setClubs(data || []);
+      // Then fetch admin information for each club
+      const clubsWithAdminInfo = await Promise.all(
+        (clubsData || []).map(async (club) => {
+          // First check if there's a user assigned as club admin
+          try {
+            const { data: clubAdminData, error: clubAdminError } =
+              await supabase
+                .from("users")
+                .select("full_name, email")
+                .eq("club_admin", club.id)
+                .single();
+
+            if (!clubAdminError && clubAdminData) {
+              return {
+                ...club,
+                admin_name: clubAdminData.full_name,
+                admin_email: clubAdminData.email,
+                admin_source: "club_admin",
+              };
+            }
+          } catch (err) {
+            // No club admin assigned, check created_by as fallback
+          }
+
+          // Fallback to created_by if no club admin assigned
+          if (club.created_by) {
+            try {
+              const { data: adminData, error: adminError } = await supabase
+                .from("users")
+                .select("full_name, email")
+                .eq("id", club.created_by)
+                .single();
+
+              if (!adminError && adminData) {
+                return {
+                  ...club,
+                  admin_name: adminData.full_name,
+                  admin_email: adminData.email,
+                  admin_source: "created_by",
+                };
+              }
+            } catch (err) {
+              console.warn("Could not fetch admin info for club:", club.id);
+            }
+          }
+
+          return {
+            ...club,
+            admin_name: "Unassigned",
+            admin_email: null,
+            admin_source: "none",
+          };
+        })
+      );
+
+      console.log("Clubs with admin info:", clubsWithAdminInfo);
+      setClubs(clubsWithAdminInfo);
     } catch (err) {
       console.error("Error in fetchClubs:", err);
       setClubsError(
@@ -477,6 +542,322 @@ const AdminDashboard = () => {
     });
   };
 
+  // Club admin assignment functions
+  const handleAssignClubAdmin = async (club: any) => {
+    setSelectedClubForAdmin(club);
+    setShowAssignAdminModal(true);
+
+    // Fetch available users for admin assignment
+    try {
+      const { data: users, error } = await supabase
+        .from("users")
+        .select("id, full_name, email, role, department")
+        .in("role", ["student", "faculty"])
+        .eq("user_status", "active");
+
+      if (error) {
+        console.error("Error fetching users:", error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch available users",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setAvailableUsers(users || []);
+    } catch (err) {
+      console.error("Error fetching users:", err);
+      toast({
+        title: "Error",
+        description: "Failed to fetch available users",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const assignAdminToClub = async (userId: string, userName: string) => {
+    if (!selectedClubForAdmin) return;
+
+    try {
+      setAssigningAdmin(true);
+
+      // First, update the user's club_admin field in users table
+      const { error: userUpdateError } = await supabase
+        .from("users")
+        .update({
+          club_admin: selectedClubForAdmin.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", userId);
+
+      if (userUpdateError) {
+        console.error("Error updating user club_admin:", userUpdateError);
+        toast({
+          title: "Error",
+          description: "Failed to assign club admin",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Then, update the club with the new admin
+      const { error: clubUpdateError } = await supabase
+        .from("clubs")
+        .update({
+          created_by: userId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", selectedClubForAdmin.id);
+
+      if (clubUpdateError) {
+        console.error("Error updating club created_by:", clubUpdateError);
+        toast({
+          title: "Error",
+          description: "Failed to assign club admin",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Update local state
+      setClubs((prev) =>
+        prev.map((club) =>
+          club.id === selectedClubForAdmin.id
+            ? { ...club, created_by: userId }
+            : club
+        )
+      );
+
+      toast({
+        title: "Success",
+        description: `${userName} has been assigned as admin for ${selectedClubForAdmin.name}`,
+      });
+
+      // Refresh user data if the assigned user is the current user
+      if (userId === user?.id) {
+        // Import refreshUser from useAuth hook context
+        window.location.reload(); // Simple way to refresh - can be improved
+        console.log(
+          "Current user's club admin data will be refreshed on reload"
+        );
+      }
+
+      setShowAssignAdminModal(false);
+      setSelectedClubForAdmin(null);
+    } catch (err) {
+      console.error("Error assigning admin:", err);
+      toast({
+        title: "Error",
+        description: "Failed to assign club admin",
+        variant: "destructive",
+      });
+    } finally {
+      setAssigningAdmin(false);
+    }
+  };
+
+  // Remove club admin assignment
+  const removeClubAdmin = async (clubId: string, clubName: string) => {
+    if (
+      !confirm(
+        `Are you sure you want to remove the club admin from "${clubName}"?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setAssigningAdmin(true);
+
+      // First, find the current club admin
+      const { data: clubData, error: clubError } = await supabase
+        .from("clubs")
+        .select("created_by")
+        .eq("id", clubId)
+        .single();
+
+      if (clubError || !clubData) {
+        console.error("Error fetching club data:", clubError);
+        toast({
+          title: "Error",
+          description: "Failed to fetch club data",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const currentAdminId = clubData.created_by;
+
+      if (!currentAdminId) {
+        toast({
+          title: "No Admin",
+          description: "This club has no assigned admin to remove",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Remove club_admin from the user
+      const { error: userUpdateError } = await supabase
+        .from("users")
+        .update({
+          club_admin: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("club_admin", clubId);
+
+      if (userUpdateError) {
+        console.error("Error removing club_admin from user:", userUpdateError);
+        toast({
+          title: "Error",
+          description: "Failed to remove club admin",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Clear the club's created_by field (optional - you can keep the original creator)
+      const { error: clubUpdateError } = await supabase
+        .from("clubs")
+        .update({
+          created_by: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", clubId);
+
+      if (clubUpdateError) {
+        console.error("Error clearing club created_by:", clubUpdateError);
+        // Don't fail the entire operation for this
+        console.warn("Club created_by field could not be cleared");
+      }
+
+      // Update local state
+      setClubs((prev) =>
+        prev.map((club) =>
+          club.id === clubId
+            ? {
+                ...club,
+                created_by: null,
+                admin_name: "Unassigned",
+                admin_email: null,
+                admin_source: "none",
+              }
+            : club
+        )
+      );
+
+      toast({
+        title: "Success",
+        description: `Club admin has been removed from ${clubName}`,
+      });
+
+      // Refresh the clubs list to show updated admin info
+      fetchClubs();
+
+      setAssigningAdmin(false);
+    } catch (err) {
+      console.error("Error removing club admin:", err);
+      toast({
+        title: "Error",
+        description: "Failed to remove club admin",
+        variant: "destructive",
+      });
+      setAssigningAdmin(false);
+    }
+  };
+
+  const closeAssignAdminModal = () => {
+    setShowAssignAdminModal(false);
+    setSelectedClubForAdmin(null);
+    setAvailableUsers([]);
+  };
+
+  // Remove all club admin assignments
+  const removeAllClubAdmins = async () => {
+    if (
+      !confirm(
+        "Are you sure you want to remove ALL club admin assignments? This will make all clubs unassigned."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setAssigningAdmin(true);
+
+      // Remove club_admin from all users
+      const { error: userUpdateError } = await supabase
+        .from("users")
+        .update({
+          club_admin: null,
+          updated_at: new Date().toISOString(),
+        })
+        .not("club_admin", "is", null);
+
+      if (userUpdateError) {
+        console.error(
+          "Error removing all club_admin assignments:",
+          userUpdateError
+        );
+        toast({
+          title: "Error",
+          description: "Failed to remove all club admin assignments",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Clear created_by from all clubs
+      const { error: clubUpdateError } = await supabase
+        .from("clubs")
+        .update({
+          created_by: null,
+          updated_at: new Date().toISOString(),
+        })
+        .not("created_by", "is", null);
+
+      if (clubUpdateError) {
+        console.error(
+          "Error clearing all club created_by fields:",
+          clubUpdateError
+        );
+        // Don't fail the entire operation for this
+        console.warn("Some club created_by fields could not be cleared");
+      }
+
+      // Update local state
+      setClubs((prev) =>
+        prev.map((club) => ({
+          ...club,
+          created_by: null,
+          admin_name: "Unassigned",
+          admin_email: null,
+          admin_source: "none",
+        }))
+      );
+
+      toast({
+        title: "Success",
+        description: "All club admin assignments have been removed",
+      });
+
+      // Refresh the clubs list
+      fetchClubs();
+
+      setShowRemoveAllAdminsModal(false);
+      setAssigningAdmin(false);
+    } catch (err) {
+      console.error("Error removing all club admins:", err);
+      toast({
+        title: "Error",
+        description: "Failed to remove all club admin assignments",
+        variant: "destructive",
+      });
+      setAssigningAdmin(false);
+    }
+  };
+
   // Load clubs and events on component mount
   useEffect(() => {
     fetchClubs();
@@ -545,6 +926,83 @@ const AdminDashboard = () => {
     }
   };
 
+  // Send notification to club members
+  const sendEventNotificationToClubMembers = async (
+    eventData: any,
+    clubId?: string
+  ) => {
+    try {
+      if (!clubId) return;
+
+      console.log(
+        "Sending notifications to club members for event:",
+        eventData.title
+      );
+
+      // Fetch all approved club members
+      const { data: applications, error: applicationsError } = await supabase
+        .from("club_membership_application")
+        .select("applicant_id")
+        .eq("club_id", clubId)
+        .eq("status", "approved");
+
+      if (applicationsError) {
+        console.error("Error fetching club members:", applicationsError);
+        return;
+      }
+
+      if (!applications || applications.length === 0) {
+        console.log("No approved members found for club:", clubId);
+        return;
+      }
+
+      // Get club name for notification
+      const { data: clubData } = await supabase
+        .from("clubs")
+        .select("name")
+        .eq("id", clubId)
+        .single();
+
+      const clubName = clubData?.name || "Unknown Club";
+
+      // Prepare notification message
+      const notificationMessage = `New event "${
+        eventData.title
+      }" has been created in ${clubName}! 📅 Event starts on ${new Date(
+        eventData.start_at
+      ).toLocaleDateString()} at ${
+        eventData.location || "TBA"
+      }. Don't miss out!`;
+
+      // Send notification to each member
+      const notifications = applications.map((app) => {
+        return {
+          user_id: app.applicant_id,
+          message: notificationMessage,
+          type: "event_created",
+          related_id: eventData.id,
+          created_at: new Date().toISOString(),
+          is_read: false,
+        };
+      });
+
+      // Batch insert notifications
+      const { error: notificationError } = await supabase
+        .from("notifications")
+        .insert(notifications);
+
+      if (notificationError) {
+        console.error("Error sending notifications:", notificationError);
+      } else {
+        console.log(
+          `Successfully sent ${notifications.length} notifications for event: ${eventData.title}`
+        );
+      }
+    } catch (error) {
+      console.error("Error in sendEventNotificationToClubMembers:", error);
+    }
+  };
+
   // Add new event
   const handleAddEvent = async () => {
     try {
@@ -569,6 +1027,12 @@ const AdminDashboard = () => {
 
       // Update local state
       setEvents((prev) => [data, ...prev]);
+
+      // Send notifications to club members if event is associated with a club
+      if (data.club_id) {
+        await sendEventNotificationToClubMembers(data, data.club_id);
+      }
+
       setShowAddEventForm(false);
       setEventFormData({
         title: "",
@@ -585,7 +1049,9 @@ const AdminDashboard = () => {
 
       toast({
         title: "Event Created",
-        description: `${data.title} has been created successfully.`,
+        description: `${data.title} has been created successfully${
+          data.club_id ? " and notifications sent to club members" : ""
+        }.`,
       });
     } catch (err) {
       console.error("Error in handleAddEvent:", err);
@@ -2178,10 +2644,21 @@ const AdminDashboard = () => {
                           information
                         </CardDescription>
                       </div>
-                      <Button onClick={() => setShowAddClubForm(true)}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add New Club
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setShowRemoveAllAdminsModal(true)}
+                          className="bg-red-50 hover:bg-red-100 text-red-700 border-red-200"
+                          title="Remove all club admin assignments"
+                        >
+                          <UserCog className="h-4 w-4 mr-2" />
+                          Remove All Admins
+                        </Button>
+                        <Button onClick={() => setShowAddClubForm(true)}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add New Club
+                        </Button>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -2221,6 +2698,9 @@ const AdminDashboard = () => {
                                 Description
                               </th>
                               <th className="text-left py-3 px-4 font-medium">
+                                Club Admin
+                              </th>
+                              <th className="text-left py-3 px-4 font-medium">
                                 Meeting Time
                               </th>
                               <th className="text-left py-3 px-4 font-medium">
@@ -2254,6 +2734,36 @@ const AdminDashboard = () => {
                                   </div>
                                 </td>
                                 <td className="py-3 px-4">
+                                  <div className="flex flex-col gap-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-medium">
+                                        {club.admin_name || "Unassigned"}
+                                      </span>
+                                      {club.admin_source === "club_admin" && (
+                                        <Badge
+                                          variant="default"
+                                          className="text-xs"
+                                        >
+                                          Assigned
+                                        </Badge>
+                                      )}
+                                      {club.admin_source === "created_by" && (
+                                        <Badge
+                                          variant="secondary"
+                                          className="text-xs"
+                                        >
+                                          Creator
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    {club.admin_email && (
+                                      <span className="text-xs text-muted-foreground">
+                                        {club.admin_email}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4">
                                   {club.meeting_time || "N/A"}
                                 </td>
                                 <td className="py-3 px-4">
@@ -2261,6 +2771,34 @@ const AdminDashboard = () => {
                                 </td>
                                 <td className="py-3 px-4 text-right">
                                   <div className="flex justify-end gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleAssignClubAdmin(club)
+                                      }
+                                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                                    >
+                                      <UserCog className="h-4 w-4 mr-1" />
+                                      Assign Admin
+                                    </Button>
+                                    {/* Remove Admin Button - Always visible for clubs with admins */}
+                                    {(club.admin_source === "club_admin" ||
+                                      club.admin_source === "created_by") && (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() =>
+                                          removeClubAdmin(club.id, club.name)
+                                        }
+                                        className="bg-red-600 hover:bg-red-700 text-white"
+                                        disabled={assigningAdmin}
+                                        title="Remove current admin from this club"
+                                      >
+                                        <UserCog className="h-4 w-4 mr-1" />
+                                        Remove Admin
+                                      </Button>
+                                    )}
                                     <Button
                                       variant="outline"
                                       size="sm"
@@ -2785,10 +3323,14 @@ const AdminDashboard = () => {
                             Total Users
                           </p>
                           <p className="text-3xl font-bold text-foreground">
-                            1,247
+                            {users.length}
                           </p>
                           <p className="text-xs text-success">
-                            +12% from last month
+                            {
+                              users.filter((u) => u.user_status === "active")
+                                .length
+                            }{" "}
+                            Active
                           </p>
                         </div>
                         <div className="bg-primary/10 p-3 rounded-lg">
@@ -2806,10 +3348,17 @@ const AdminDashboard = () => {
                             Active Clubs
                           </p>
                           <p className="text-3xl font-bold text-foreground">
-                            34
+                            {clubs.length}
                           </p>
                           <p className="text-xs text-success">
-                            +3 new this month
+                            {
+                              clubs.filter(
+                                (c) =>
+                                  c.admin_source === "club_admin" ||
+                                  c.admin_source === "created_by"
+                              ).length
+                            }{" "}
+                            Managed
                           </p>
                         </div>
                         <div className="bg-accent/10 p-3 rounded-lg">
@@ -2827,9 +3376,16 @@ const AdminDashboard = () => {
                             Total Events
                           </p>
                           <p className="text-3xl font-bold text-foreground">
-                            89
+                            {events.length}
                           </p>
-                          <p className="text-xs text-success">+8 this week</p>
+                          <p className="text-xs text-success">
+                            {
+                              events.filter(
+                                (e) => new Date(e.start_at) > new Date()
+                              ).length
+                            }{" "}
+                            Upcoming
+                          </p>
                         </div>
                         <div className="bg-warning/10 p-3 rounded-lg">
                           <Calendar className="h-6 w-6 text-warning" />
@@ -2950,33 +3506,113 @@ const AdminDashboard = () => {
                       {[
                         {
                           department: "Computer Science",
-                          users: 245,
-                          percentage: "19.7%",
+                          users: users.filter(
+                            (u) => u.department === "Computer Science"
+                          ).length,
+                          percentage:
+                            users.length > 0
+                              ? `${(
+                                  (users.filter(
+                                    (u) => u.department === "Computer Science"
+                                  ).length /
+                                    users.length) *
+                                  100
+                                ).toFixed(1)}%`
+                              : "0%",
                         },
                         {
                           department: "Engineering",
-                          users: 198,
-                          percentage: "15.9%",
+                          users: users.filter(
+                            (u) => u.department === "Engineering"
+                          ).length,
+                          percentage:
+                            users.length > 0
+                              ? `${(
+                                  (users.filter(
+                                    (u) => u.department === "Engineering"
+                                  ).length /
+                                    users.length) *
+                                  100
+                                ).toFixed(1)}%`
+                              : "0%",
                         },
                         {
                           department: "Business",
-                          users: 187,
-                          percentage: "15.0%",
+                          users: users.filter(
+                            (u) => u.department === "Business"
+                          ).length,
+                          percentage:
+                            users.length > 0
+                              ? `${(
+                                  (users.filter(
+                                    (u) => u.department === "Business"
+                                  ).length /
+                                    users.length) *
+                                  100
+                                ).toFixed(1)}%`
+                              : "0%",
                         },
                         {
                           department: "Arts & Humanities",
-                          users: 156,
-                          percentage: "12.5%",
+                          users: users.filter(
+                            (u) => u.department === "Arts & Humanities"
+                          ).length,
+                          percentage:
+                            users.length > 0
+                              ? `${(
+                                  (users.filter(
+                                    (u) => u.department === "Arts & Humanities"
+                                  ).length /
+                                    users.length) *
+                                  100
+                                ).toFixed(1)}%`
+                              : "0%",
                         },
                         {
                           department: "Medicine",
-                          users: 134,
-                          percentage: "10.8%",
+                          users: users.filter(
+                            (u) => u.department === "Medicine"
+                          ).length,
+                          percentage:
+                            users.length > 0
+                              ? `${(
+                                  (users.filter(
+                                    (u) => u.department === "Medicine"
+                                  ).length /
+                                    users.length) *
+                                  100
+                                ).toFixed(1)}%`
+                              : "0%",
                         },
                         {
                           department: "Others",
-                          users: 327,
-                          percentage: "26.2%",
+                          users: users.filter(
+                            (u) =>
+                              ![
+                                "Computer Science",
+                                "Engineering",
+                                "Business",
+                                "Arts & Humanities",
+                                "Medicine",
+                              ].includes(u.department)
+                          ).length,
+                          percentage:
+                            users.length > 0
+                              ? `${(
+                                  (users.filter(
+                                    (u) =>
+                                      ![
+                                        "Computer Science",
+                                        "Engineering",
+                                        "Business",
+                                        "Arts & Humanities",
+                                        "Medicine",
+                                      ].includes(u.department)
+                                  ).length /
+                                    users.length) *
+                                  100
+                                ).toFixed(1)}%`
+                              : "0%",
                         },
                       ].map((dept, index) => (
                         <div
@@ -3056,6 +3692,126 @@ const AdminDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Assign Club Admin Modal */}
+      {showAssignAdminModal && selectedClubForAdmin && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background p-6 rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">Assign Club Admin</h2>
+              <Button variant="ghost" size="sm" onClick={closeAssignAdminModal}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-2">
+                Club: {selectedClubForAdmin.name}
+              </h3>
+              <p className="text-muted-foreground">
+                Select a user to assign as the club administrator. This user
+                will have full control over the club.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid gap-4">
+                {availableUsers.map((user) => (
+                  <Card key={user.id} className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-semibold">{user.full_name}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {user.email}
+                        </p>
+                        <div className="flex gap-2 mt-2">
+                          <Badge variant="outline">{user.role}</Badge>
+                          <Badge variant="secondary">{user.department}</Badge>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() =>
+                          assignAdminToClub(user.id, user.full_name)
+                        }
+                        disabled={assigningAdmin}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        {assigningAdmin ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            Assigning...
+                          </>
+                        ) : (
+                          <>
+                            <UserCog className="h-4 w-4 mr-2" />
+                            Assign as Admin
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+
+              {availableUsers.length === 0 && (
+                <div className="text-center py-8">
+                  <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">
+                    No available users found for admin assignment.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remove All Club Admins Modal */}
+      {showRemoveAllAdminsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-background p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                <UserCog className="h-6 w-6 text-red-600" />
+              </div>
+              <h2 className="text-xl font-bold mb-2">Remove All Club Admins</h2>
+              <p className="text-muted-foreground mb-6">
+                This action will remove ALL club admin assignments from the
+                system. All clubs will become unassigned and users will lose
+                access to Club Dashboard.
+              </p>
+
+              <div className="flex gap-3 justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowRemoveAllAdminsModal(false)}
+                  disabled={assigningAdmin}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={removeAllClubAdmins}
+                  disabled={assigningAdmin}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  {assigningAdmin ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Removing...
+                    </>
+                  ) : (
+                    <>
+                      <UserCog className="h-4 w-4 mr-2" />
+                      Remove All Admins
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };

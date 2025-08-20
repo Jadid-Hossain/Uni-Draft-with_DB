@@ -13,6 +13,7 @@ import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
 import Profile from "./pages/Profile";
 import AdminDashboard from "./pages/AdminDashboard";
+// import UserDashboard from "./pages/Profile";
 import Chat from "./pages/Chat";
 import JoinClub from "./pages/JoinClub";
 import EventRegistration from "./pages/EventRegistration";
@@ -93,6 +94,14 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            {/* <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <UserDashboard />
+                </ProtectedRoute>
+              }
+            /> */}
             <Route
               path="/club-dashboard"
               element={

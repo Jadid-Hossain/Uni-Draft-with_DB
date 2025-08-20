@@ -24,6 +24,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import NotificationBell from "./NotificationBell";
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -117,87 +118,96 @@ const Header = () => {
           {/* Auth Section */}
           <div className="hidden md:flex items-center space-x-3">
             {isAuthenticated ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="relative h-10 w-10 rounded-full p-0 hover:scale-105 transition-transform"
+              <>
+                <NotificationBell />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      className="relative h-10 w-10 rounded-full p-0 hover:scale-105 transition-transform"
+                    >
+                      <Avatar className="h-10 w-10 border-2 border-primary/20 hover:border-primary/40 transition-colors">
+                        <AvatarImage src="" alt={user?.full_name} />
+                        <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold">
+                          {user?.full_name
+                            ?.split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .toUpperCase() || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    className="w-56 bg-background/95 backdrop-blur-lg border border-border/50"
+                    align="end"
+                    forceMount
                   >
-                    <Avatar className="h-10 w-10 border-2 border-primary/20 hover:border-primary/40 transition-colors">
-                      <AvatarImage src="" alt={user?.full_name} />
-                      <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold">
-                        {user?.full_name
-                          ?.split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .toUpperCase() || "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  className="w-56 bg-background/95 backdrop-blur-lg border border-border/50"
-                  align="end"
-                  forceMount
-                >
-                  <DropdownMenuLabel className="font-normal">
-                    <div className="flex flex-col space-y-1">
-                      <p className="text-sm font-medium leading-none">
-                        {user?.full_name}
-                      </p>
-                      <p className="text-xs leading-none text-muted-foreground">
-                        {user?.email}
-                      </p>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {user?.role !== "admin" && (
+                    <DropdownMenuLabel className="font-normal">
+                      <div className="flex flex-col space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {user?.full_name}
+                        </p>
+                        <p className="text-xs leading-none text-muted-foreground">
+                          {user?.email}
+                        </p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      <Link
-                        to="/profile"
-                        className="flex items-center cursor-pointer"
-                      >
+                      {/* <Link to="*" className="flex items-center cursor-pointer">
                         <User className="mr-2 h-4 w-4" />
-                        <span>Profile</span>
-                      </Link>
+                        <span>Dashboard</span>
+                      </Link> */}
                     </DropdownMenuItem>
-                  )}
-                  {user?.role === "admin" && (
-                    <DropdownMenuItem asChild>
-                      <Link
-                        to="/admin"
-                        className="flex items-center cursor-pointer"
-                      >
-                        <Shield className="mr-2 h-4 w-4" />
-                        <span>Admin Dashboard</span>
-                      </Link>
+                    {user?.role !== "admin" && (
+                      <DropdownMenuItem asChild>
+                        <Link
+                          to="/profile"
+                          className="flex items-center cursor-pointer"
+                        >
+                          <User className="mr-2 h-4 w-4" />
+                          <span>Profile</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    {user?.role === "admin" && (
+                      <DropdownMenuItem asChild>
+                        <Link
+                          to="/admin"
+                          className="flex items-center cursor-pointer"
+                        >
+                          <Shield className="mr-2 h-4 w-4" />
+                          <span>Admin Dashboard</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    {user?.role === "faculty" && (
+                      <DropdownMenuItem asChild>
+                        <Link
+                          to="/events"
+                          className="flex items-center cursor-pointer"
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          <span>Manage Events</span>
+                        </Link>
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem>
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Settings</span>
                     </DropdownMenuItem>
-                  )}
-                  {user?.role === "faculty" && (
-                    <DropdownMenuItem asChild>
-                      <Link
-                        to="/events"
-                        className="flex items-center cursor-pointer"
-                      >
-                        <Calendar className="mr-2 h-4 w-4" />
-                        <span>Manage Events</span>
-                      </Link>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={handleLogout}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
+                      <span>Log out</span>
                     </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem>
-                    <Settings className="mr-2 h-4 w-4" />
-                    <span>Settings</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    onClick={handleLogout}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Log out</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
             ) : (
               <>
                 <Button

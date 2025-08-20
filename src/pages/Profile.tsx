@@ -47,6 +47,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUserEvents } from "@/hooks/useUserEvents";
 import { useUserClubApplications } from "@/hooks/useUserClubApplications";
 import { supabase } from "@/lib/supabase";
+import UniversityCalendar from "@/components/UniversityCalendar";
 
 const Profile = () => {
   const { user } = useAuth();
@@ -831,10 +832,11 @@ const Profile = () => {
 
           {/* Profile Tabs */}
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="academic">Academic</TabsTrigger>
               <TabsTrigger value="activities">Activities</TabsTrigger>
+              <TabsTrigger value="calendar">Calendar</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
 
@@ -1212,6 +1214,11 @@ const Profile = () => {
                   </CardContent>
                 </Card>
               </div>
+            </TabsContent>
+
+            {/* Calendar Tab */}
+            <TabsContent value="calendar" className="space-y-6">
+              <UniversityCalendar />
             </TabsContent>
 
             {/* Settings Tab */}

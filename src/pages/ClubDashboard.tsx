@@ -109,13 +109,40 @@ const ClubDashboard = () => {
     is_public: true,
   });
 
-  // Fetch clubs where the user is the creator
+  const isSuperAdmin = user?.role === "admin";
+
+  // Fetch clubs where the user is the creator or assigned admin
   const fetchUserClubs = async () => {
     try {
-      const { data, error } = await supabase
-        .from("clubs")
-        .select("*")
-        .eq("created_by", user.id);
+      let query;
+
+      if (isSuperAdmin) {
+        // Superadmin can see all clubs
+        query = supabase.from("clubs").select("*");
+        console.log("Superadmin: fetching all clubs");
+      } else {
+        // Regular users can see clubs they created OR clubs they're assigned as admin
+        if (user.club_admin) {
+          // User has a club admin assignment
+          console.log("User has club admin assignment:", user.club_admin);
+          query = supabase
+            .from("clubs")
+            .select("*")
+            .or(`created_by.eq.${user.id},id.eq.${user.club_admin}`);
+        } else {
+          // User only has clubs they created
+          console.log("User fetching clubs they created");
+          query = supabase.from("clubs").select("*").eq("created_by", user.id);
+        }
+      }
+
+      console.log(
+        "Executing query for user:",
+        user.id,
+        "club_admin:",
+        user.club_admin
+      );
+      const { data, error } = await query;
 
       if (error) {
         console.error("Error fetching clubs:", error);
@@ -317,6 +344,14 @@ const ClubDashboard = () => {
 
   // Create new club
   const handleCreateClub = async () => {
+    if (!isSuperAdmin) {
+      toast({
+        title: "Not allowed",
+        description: "Only superadmin can create clubs",
+        variant: "destructive",
+      });
+      return;
+    }
     if (
       !newClubForm.name.trim() ||
       !newClubForm.description.trim() ||
@@ -508,6 +543,81 @@ const ClubDashboard = () => {
     }
   };
 
+  // Send notification to club members
+  const sendEventNotificationToClubMembers = async (
+    eventData: any,
+    clubId: string
+  ) => {
+    try {
+      console.log(
+        "Sending notification to club members for event:",
+        eventData.title
+      );
+
+      // Fetch all approved club members
+      const { data: applications, error: applicationsError } = await supabase
+        .from("club_membership_application")
+        .select("applicant_id")
+        .eq("club_id", clubId)
+        .eq("status", "approved");
+
+      if (applicationsError) {
+        console.error("Error fetching club members:", applicationsError);
+        return;
+      }
+
+      if (!applications || applications.length === 0) {
+        console.log("No approved members found for club:", clubId);
+        return;
+      }
+
+      // Get club name for notification
+      const { data: clubData } = await supabase
+        .from("clubs")
+        .select("name")
+        .eq("id", clubId)
+        .single();
+
+      const clubName = clubData?.name || "Unknown Club";
+
+      // Prepare notification message
+      const notificationMessage = `New event "${
+        eventData.title
+      }" has been created in ${clubName}! 📅 Event starts on ${new Date(
+        eventData.start_at
+      ).toLocaleDateString()} at ${
+        eventData.location || "TBA"
+      }. Don't miss out!`;
+
+      // Send notification to each member
+      const notifications = applications.map((app) => {
+        return {
+          user_id: app.applicant_id,
+          message: notificationMessage,
+          type: "event_created",
+          related_id: eventData.id,
+          created_at: new Date().toISOString(),
+          is_read: false,
+        };
+      });
+
+      // Batch insert notifications
+      const { error: notificationError } = await supabase
+        .from("notifications")
+        .insert(notifications);
+
+      if (notificationError) {
+        console.error("Error sending notifications:", notificationError);
+      } else {
+        console.log(
+          `Successfully sent ${notifications.length} notifications for event: ${eventData.title}`
+        );
+      }
+    } catch (error) {
+      console.error("Error in sendEventNotificationToClubMembers:", error);
+    }
+  };
+
   // Create new event
   const handleCreateEvent = async () => {
     if (!selectedClub) return;
@@ -546,6 +656,9 @@ const ClubDashboard = () => {
         return;
       }
 
+      // Send notification to club members
+      await sendEventNotificationToClubMembers(data, selectedClub.id);
+
       // Refresh events list
       fetchClubEvents(selectedClub.id);
 
@@ -565,7 +678,8 @@ const ClubDashboard = () => {
 
       toast({
         title: "Success",
-        description: "Event created successfully",
+        description:
+          "Event created successfully and notification sent to club members",
       });
     } catch (error) {
       console.error("Error:", error);
@@ -608,7 +722,14 @@ const ClubDashboard = () => {
 
   useEffect(() => {
     if (user?.id) {
+      console.log("User authenticated, fetching clubs. User:", {
+        id: user.id,
+        role: user.role,
+        club_admin: user.club_admin,
+      });
       fetchUserClubs();
+    } else {
+      console.log("No user authenticated");
     }
   }, [user]);
 
@@ -630,6 +751,21 @@ const ClubDashboard = () => {
     );
   }
 
+  // Access control: only superadmin or users who manage at least one club
+  if (!isSuperAdmin && clubs.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-80px)]">
+        <div className="text-center max-w-md">
+          <Users className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-2xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground">
+            You do not have permission to access the Club Dashboard.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (clubs.length === 0) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-80px)]">
@@ -639,9 +775,11 @@ const ClubDashboard = () => {
           <p className="text-muted-foreground mb-4">
             You haven't created any clubs yet. Create a club to get started!
           </p>
-          <Button onClick={() => setShowCreateClubForm(true)}>
-            Create Your First Club
-          </Button>
+          {isSuperAdmin && (
+            <Button onClick={() => setShowCreateClubForm(true)}>
+              Create Your First Club
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -657,13 +795,15 @@ const ClubDashboard = () => {
             Manage your clubs, members, and events
           </p>
         </div>
-        <Button
-          onClick={() => setShowCreateClubForm(true)}
-          className="flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Create New Club
-        </Button>
+        {isSuperAdmin && (
+          <Button
+            onClick={() => setShowCreateClubForm(true)}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Create New Club
+          </Button>
+        )}
       </div>
 
       {/* Club Selection */}
@@ -678,14 +818,16 @@ const ClubDashboard = () => {
             {club.name}
           </Button>
         ))}
-        <Button
-          variant="outline"
-          onClick={() => setShowCreateClubForm(true)}
-          className="whitespace-nowrap flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          New Club
-        </Button>
+        {isSuperAdmin && (
+          <Button
+            variant="outline"
+            onClick={() => setShowCreateClubForm(true)}
+            className="whitespace-nowrap flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            New Club
+          </Button>
+        )}
       </div>
 
       {selectedClub && (
@@ -1125,7 +1267,7 @@ const ClubDashboard = () => {
       )}
 
       {/* Create New Club Modal */}
-      {showCreateClubForm && (
+      {isSuperAdmin && showCreateClubForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-background p-6 rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">

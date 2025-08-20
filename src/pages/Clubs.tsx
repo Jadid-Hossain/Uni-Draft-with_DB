@@ -98,9 +98,9 @@ const Clubs = () => {
             Showing {filteredClubs.length} clubs
           </p>
           {/* Temporary test button */}
-          <Button onClick={createTestClub} variant="outline" size="sm">
+          {/* <Button onClick={createTestClub} variant="outline" size="sm">
             Create Test Club
-          </Button>
+          </Button> */}
         </div>
 
         {/* Loading State */}
@@ -194,7 +194,7 @@ const Clubs = () => {
               interests
             </p>
             <Button variant="secondary" size="lg">
-              Create New Club
+              Contact Us
             </Button>
           </Card>
         </div>

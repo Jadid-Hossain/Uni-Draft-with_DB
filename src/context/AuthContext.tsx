@@ -23,6 +23,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<{ error?: AuthError }>;
   signup: (userData: SignupData) => Promise<{ error?: AuthError }>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -94,6 +95,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     }
   };
 
+  const refreshUser = async () => {
+    try {
+      await authService.refreshUserData();
+      const refreshedUser = authService.getCurrentUser();
+      setUser(refreshedUser);
+      console.log("AuthContext - User data refreshed:", refreshedUser);
+    } catch (error) {
+      console.error("Error refreshing user:", error);
+    }
+  };
+
   const value = {
     user,
     isAuthenticated: !!user,
@@ -101,6 +113,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
     login,
     signup,
     logout,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
