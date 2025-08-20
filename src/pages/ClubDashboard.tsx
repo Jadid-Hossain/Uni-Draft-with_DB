@@ -2,7 +2,13 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -78,8 +84,9 @@ const ClubDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [savingClub, setSavingClub] = useState(false);
 
-  // Event creation form
+  // Event creation/editing form
   const [showEventForm, setShowEventForm] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<ClubEvent | null>(null);
   const [eventForm, setEventForm] = useState({
     title: "",
     description: "",
@@ -89,7 +96,7 @@ const ClubDashboard = () => {
     end_time: "",
     location: "",
     capacity: 50,
-    status: "upcoming",
+    status: "upcoming" as "upcoming" | "ongoing" | "completed" | "cancelled",
   });
 
   // Club settings form
@@ -720,6 +727,97 @@ const ClubDashboard = () => {
     }
   };
 
+  // Edit event handler
+  const handleEditEvent = (event: ClubEvent) => {
+    setEditingEvent(event);
+    setEventForm({
+      title: event.title,
+      description: event.description,
+      start_date: event.start_at.split("T")[0], // Extract date part
+      start_time: event.start_at.split("T")[1]?.split(".")[0] || "", // Extract time part
+      end_date: event.end_at.split("T")[0], // Extract date part
+      end_time: event.end_at.split("T")[1]?.split(".")[0] || "", // Extract time part
+      location: event.location,
+      capacity: event.capacity,
+      status: event.status,
+    });
+    setShowEventForm(true);
+  };
+
+  // Update event
+  const handleUpdateEvent = async () => {
+    if (!editingEvent || !selectedClub) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("events")
+        .update({
+          title: eventForm.title,
+          description: eventForm.description,
+          start_at: `${eventForm.start_date}T${eventForm.start_time}`,
+          end_at: `${eventForm.end_date}T${eventForm.end_time}`,
+          location: eventForm.location,
+          capacity: eventForm.capacity,
+          status: eventForm.status,
+        })
+        .eq("id", editingEvent.id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("Error updating event:", error);
+        toast({
+          title: "Error",
+          description: "Failed to update event",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Refresh events list
+      fetchClubEvents(selectedClub.id);
+
+      // Reset form and editing state
+      setEventForm({
+        title: "",
+        description: "",
+        start_date: "",
+        start_time: "",
+        end_date: "",
+        end_time: "",
+        location: "",
+        capacity: 50,
+        status: "upcoming",
+      });
+      setEditingEvent(null);
+      setShowEventForm(false);
+
+      toast({
+        title: "Success",
+        description: "Event updated successfully",
+      });
+    } catch (error) {
+      console.error("Error:", error);
+    }
+  };
+
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setEditingEvent(null);
+    setEventForm({
+      title: "",
+      description: "",
+      start_date: "",
+      start_time: "",
+      end_date: "",
+      end_time: "",
+      location: "",
+      capacity: 50,
+      status: "upcoming",
+    });
+    setShowEventForm(false);
+  };
+
   useEffect(() => {
     if (user?.id) {
       console.log("User authenticated, fetching clubs. User:", {
@@ -977,11 +1075,18 @@ const ClubDashboard = () => {
                 </Button>
               </div>
 
-              {/* Event Creation Form */}
+              {/* Event Creation/Editing Form */}
               {showEventForm && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Create New Event</CardTitle>
+                    <CardTitle>
+                      {editingEvent ? "Edit Event" : "Create New Event"}
+                    </CardTitle>
+                    <CardDescription>
+                      {editingEvent
+                        ? "Update event information"
+                        : "Fill in the details to create a new event"}
+                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1055,9 +1160,13 @@ const ClubDashboard = () => {
                       />
                       <Select
                         value={eventForm.status}
-                        onValueChange={(value) =>
-                          setEventForm({ ...eventForm, status: value })
-                        }
+                        onValueChange={(
+                          value:
+                            | "upcoming"
+                            | "ongoing"
+                            | "completed"
+                            | "cancelled"
+                        ) => setEventForm({ ...eventForm, status: value })}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -1082,12 +1191,22 @@ const ClubDashboard = () => {
                       rows={3}
                     />
                     <div className="flex gap-2">
-                      <Button onClick={handleCreateEvent}>Create Event</Button>
+                      <Button
+                        onClick={
+                          editingEvent ? handleUpdateEvent : handleCreateEvent
+                        }
+                      >
+                        {editingEvent ? "Update Event" : "Create Event"}
+                      </Button>
                       <Button
                         variant="outline"
-                        onClick={() => setShowEventForm(false)}
+                        onClick={
+                          editingEvent
+                            ? handleCancelEdit
+                            : () => setShowEventForm(false)
+                        }
                       >
-                        Cancel
+                        {editingEvent ? "Cancel Edit" : "Cancel"}
                       </Button>
                     </div>
                   </CardContent>
@@ -1160,13 +1279,22 @@ const ClubDashboard = () => {
                               </Badge>
                             </div>
                           </div>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleDeleteEvent(event.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEditEvent(event)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => handleDeleteEvent(event.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
