@@ -20,6 +20,8 @@ import EventRegistration from "./pages/EventRegistration";
 import Resources from "./pages/Resources";
 import LearnMore from "./pages/LearnMore";
 import ClubDashboard from "./pages/ClubDashboard";
+import Careers from "./pages/Careers";
+import Assistant from "./pages/Assistant";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -66,6 +68,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Resources />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/careers"
+              element={
+                <ProtectedRoute>
+                  <Careers />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/assistant"
+              element={
+                <ProtectedRoute>
+                  <Assistant />
                 </ProtectedRoute>
               }
             />
