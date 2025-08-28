@@ -37,7 +37,12 @@ const Header = () => {
   const navigationItems = [
     { name: "Clubs", href: "/clubs", icon: Users, requireAuth: true },
     { name: "Events", href: "/events", icon: Calendar, requireAuth: true },
-    { name: "Social Feed", href: "/social-feed", icon: MessageSquare, requireAuth: true },
+    {
+      name: "Social Feed",
+      href: "/social-feed",
+      icon: MessageSquare,
+      requireAuth: true,
+    },
     { name: "Forums", href: "/forum", icon: MessageSquare, requireAuth: true },
     {
       name: "Resources",
@@ -45,7 +50,12 @@ const Header = () => {
       icon: BookOpen,
       requireAuth: true,
     },
-    { name: "Lost & Found", href: "/lost-found", icon: Search, requireAuth: true },
+    {
+      name: "Lost & Found",
+      href: "/lost-found",
+      icon: Search,
+      requireAuth: true,
+    },
     { name: "Careers", href: "/careers", icon: Briefcase, requireAuth: true },
     { name: "Assistant", href: "/assistant", icon: Bot, requireAuth: true },
   ];

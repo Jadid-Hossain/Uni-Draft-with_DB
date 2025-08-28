@@ -1,12 +1,12 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertCircle, X } from 'lucide-react';
-import { useLostFound } from '@/hooks/useLostFound';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AlertCircle, X } from "lucide-react";
+import { useLostFound } from "@/hooks/useLostFound";
 
 interface LostFoundFormProps {
   onClose: () => void;
@@ -14,10 +14,10 @@ interface LostFoundFormProps {
 }
 
 const LostFoundForm = ({ onClose, onSuccess }: LostFoundFormProps) => {
-  const [activeTab, setActiveTab] = useState<'lost' | 'found'>('lost');
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [location, setLocation] = useState('');
+  const [activeTab, setActiveTab] = useState<"lost" | "found">("lost");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [location, setLocation] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,9 +25,9 @@ const LostFoundForm = ({ onClose, onSuccess }: LostFoundFormProps) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!title.trim() || !description.trim() || !location.trim()) {
-      setError('Please fill in all fields');
+      setError("Please fill in all fields");
       return;
     }
 
@@ -42,13 +42,13 @@ const LostFoundForm = ({ onClose, onSuccess }: LostFoundFormProps) => {
       });
 
       // Reset form
-      setTitle('');
-      setDescription('');
-      setLocation('');
-      
+      setTitle("");
+      setDescription("");
+      setLocation("");
+
       onSuccess();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create item');
+      setError(err instanceof Error ? err.message : "Failed to create item");
     } finally {
       setIsSubmitting(false);
     }
@@ -65,7 +65,7 @@ const LostFoundForm = ({ onClose, onSuccess }: LostFoundFormProps) => {
       <Card className="w-full max-w-md max-h-[90vh] overflow-y-auto">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle className="text-lg">
-            Report {activeTab === 'lost' ? 'Lost' : 'Found'} Item
+            Report {activeTab === "lost" ? "Lost" : "Found"} Item
           </CardTitle>
           <Button
             variant="ghost"
@@ -78,10 +78,13 @@ const LostFoundForm = ({ onClose, onSuccess }: LostFoundFormProps) => {
           </Button>
         </CardHeader>
         <CardContent>
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'lost' | 'found')}>
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as "lost" | "found")}
+          >
             <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="lost">Lost Item</TabsTrigger>
-              <TabsTrigger value="found">Found Item</TabsTrigger>
+              {/* <TabsTrigger value="found">Found Item</TabsTrigger> */}
             </TabsList>
 
             <TabsContent value="lost">
@@ -145,7 +148,7 @@ const LostFoundForm = ({ onClose, onSuccess }: LostFoundFormProps) => {
                     disabled={isSubmitting}
                     className="flex-1"
                   >
-                    {isSubmitting ? 'Reporting...' : 'Report Lost Item'}
+                    {isSubmitting ? "Reporting..." : "Report Lost Item"}
                   </Button>
                 </div>
               </form>
@@ -212,7 +215,7 @@ const LostFoundForm = ({ onClose, onSuccess }: LostFoundFormProps) => {
                     disabled={isSubmitting}
                     className="flex-1"
                   >
-                    {isSubmitting ? 'Reporting...' : 'Report Found Item'}
+                    {isSubmitting ? "Reporting..." : "Report Found Item"}
                   </Button>
                 </div>
               </form>

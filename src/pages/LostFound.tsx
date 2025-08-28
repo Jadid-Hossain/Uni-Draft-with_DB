@@ -1,51 +1,70 @@
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Plus, Search, MapPin, Calendar, User, AlertCircle } from 'lucide-react';
-import { useLostFound, LostFoundItem } from '@/hooks/useLostFound';
-import { useAuth } from '@/context/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import LostFoundForm from '@/components/LostFoundForm';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import {
+  Plus,
+  Search,
+  MapPin,
+  Calendar,
+  User,
+  AlertCircle,
+} from "lucide-react";
+import { useLostFound, LostFoundItem } from "@/hooks/useLostFound";
+import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import LostFoundForm from "@/components/LostFoundForm";
 
 const LostFound = () => {
   const [showForm, setShowForm] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const { items, loading, error, updateItemStatus, deleteItem, getUserItems } = useLostFound();
+  const [searchTerm, setSearchTerm] = useState("");
+  const { items, loading, error, updateItemStatus, deleteItem, getUserItems } =
+    useLostFound();
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const lostItems = items.filter(item => item.status === 'lost');
-  const foundItems = items.filter(item => item.status === 'found');
-  const claimedItems = items.filter(item => item.status === 'claimed');
+  const lostItems = items.filter((item) => item.status === "lost");
+  const foundItems = items.filter((item) => item.status === "found");
+  const claimedItems = items.filter((item) => item.status === "claimed");
   const userItems = getUserItems();
 
-  const filteredLostItems = lostItems.filter(item =>
-    item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.location.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredLostItems = lostItems.filter(
+    (item) =>
+      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredFoundItems = foundItems.filter(item =>
-    item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.location.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredFoundItems = foundItems.filter(
+    (item) =>
+      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleStatusUpdate = async (itemId: string, newStatus: 'lost' | 'found' | 'claimed') => {
+  const handleStatusUpdate = async (
+    itemId: string,
+    newStatus: "lost" | "found" | "claimed"
+  ) => {
     try {
       await updateItemStatus(itemId, newStatus);
       toast({
-        title: 'Status Updated',
+        title: "Status Updated",
         description: `Item status changed to ${newStatus}`,
       });
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to update item status',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to update item status",
+        variant: "destructive",
       });
     }
   };
@@ -54,23 +73,23 @@ const LostFound = () => {
     try {
       await deleteItem(itemId);
       toast({
-        title: 'Item Deleted',
-        description: 'Item has been removed successfully',
+        title: "Item Deleted",
+        description: "Item has been removed successfully",
       });
     } catch (error) {
       toast({
-        title: 'Error',
-        description: 'Failed to delete item',
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to delete item",
+        variant: "destructive",
       });
     }
   };
 
   const getStatusBadge = (status: string) => {
     const variants = {
-      lost: 'destructive',
-      found: 'default',
-      claimed: 'secondary',
+      lost: "destructive",
+      found: "default",
+      claimed: "secondary",
     } as const;
 
     return (
@@ -81,12 +100,12 @@ const LostFound = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
   };
 
@@ -101,9 +120,9 @@ const LostFound = () => {
               <CardTitle className="text-lg mb-2">{item.title}</CardTitle>
               <div className="flex items-center gap-2 mb-2">
                 {getStatusBadge(item.status)}
-                                 <span className="text-sm text-muted-foreground">
-                   by {item.user_name || 'Unknown User'}
-                 </span>
+                <span className="text-sm text-muted-foreground">
+                  by {item.user_name || "Unknown User"}
+                </span>
               </div>
             </div>
             {isOwner && (
@@ -111,8 +130,8 @@ const LostFound = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => handleStatusUpdate(item.id, 'claimed')}
-                  disabled={item.status === 'claimed'}
+                  onClick={() => handleStatusUpdate(item.id, "claimed")}
+                  disabled={item.status === "claimed"}
                 >
                   Mark Claimed
                 </Button>
@@ -128,7 +147,9 @@ const LostFound = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground mb-3">{item.description}</p>
+          <p className="text-sm text-muted-foreground mb-3">
+            {item.description}
+          </p>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
               <MapPin className="h-4 w-4" />
@@ -159,7 +180,8 @@ const LostFound = () => {
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Lost & Found</h1>
         <p className="text-muted-foreground">
-          Report lost items or browse found items. Help your fellow students find their belongings.
+          Report lost items or browse found items. Help your fellow students
+          find their belongings.
         </p>
       </div>
 
@@ -175,7 +197,10 @@ const LostFound = () => {
             className="w-full pl-10 pr-4 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
-        <Button onClick={() => setShowForm(true)} className="flex items-center gap-2">
+        <Button
+          onClick={() => setShowForm(true)}
+          className="flex items-center gap-2"
+        >
           <Plus className="h-4 w-4" />
           Report Item
         </Button>
@@ -202,7 +227,7 @@ const LostFound = () => {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        {/* <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -212,7 +237,7 @@ const LostFound = () => {
               <Badge variant="default">Found</Badge>
             </div>
           </CardContent>
-        </Card>
+        </Card> */}
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
@@ -240,9 +265,15 @@ const LostFound = () => {
       {/* Tabs */}
       <Tabs defaultValue="lost" className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="lost">Lost Items ({lostItems.length})</TabsTrigger>
-          <TabsTrigger value="found">Found Items ({foundItems.length})</TabsTrigger>
-          <TabsTrigger value="claimed">Claimed Items ({claimedItems.length})</TabsTrigger>
+          <TabsTrigger value="lost">
+            Lost Items ({lostItems.length})
+          </TabsTrigger>
+          {/* <TabsTrigger value="found">
+            Found Items ({foundItems.length})
+          </TabsTrigger> */}
+          <TabsTrigger value="claimed">
+            Claimed Items ({claimedItems.length})
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="lost" className="space-y-4">
@@ -265,7 +296,9 @@ const LostFound = () => {
           {filteredFoundItems.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
-                <p className="text-muted-foreground">No found items available.</p>
+                <p className="text-muted-foreground">
+                  No found items available.
+                </p>
               </CardContent>
             </Card>
           ) : (
@@ -301,8 +334,8 @@ const LostFound = () => {
           onSuccess={() => {
             setShowForm(false);
             toast({
-              title: 'Item Reported',
-              description: 'Your item has been reported successfully.',
+              title: "Item Reported",
+              description: "Your item has been reported successfully.",
             });
           }}
         />
