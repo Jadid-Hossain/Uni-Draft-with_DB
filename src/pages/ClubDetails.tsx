@@ -309,15 +309,61 @@ const ClubDetails = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="prose max-w-none">
-                    <p className="mb-4 text-foreground leading-relaxed">
-                      {club.description || "No description available for this club."}
-                    </p>
+                  <div className="prose max-w-none space-y-6">
+                    {club.description && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3 text-foreground">Description</h3>
+                        <p className="text-foreground leading-relaxed">{club.description}</p>
+                      </div>
+                    )}
+                    
+                    {club.club_details && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3 text-foreground">Club Details</h3>
+                        <div className="text-foreground leading-relaxed whitespace-pre-line">{club.club_details}</div>
+                      </div>
+                    )}
+                    
+                    {club.mission_statement && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3 text-foreground">Mission Statement</h3>
+                        <p className="text-foreground leading-relaxed">{club.mission_statement}</p>
+                      </div>
+                    )}
+                    
+                    {club.vision_statement && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3 text-foreground">Vision Statement</h3>
+                        <p className="text-foreground leading-relaxed">{club.vision_statement}</p>
+                      </div>
+                    )}
+                    
                     {club.requirements && (
-                      <>
-                        <h3 className="text-lg font-semibold mt-6 mb-3">Requirements</h3>
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3 text-foreground">Requirements</h3>
                         <p className="text-foreground leading-relaxed">{club.requirements}</p>
-                      </>
+                      </div>
+                    )}
+                    
+                    {club.founded_date && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3 text-foreground">Founded</h3>
+                        <p className="text-foreground leading-relaxed">{new Date(club.founded_date).toLocaleDateString()}</p>
+                      </div>
+                    )}
+                    
+                    {club.website && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3 text-foreground">Website</h3>
+                        <a 
+                          href={club.website} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-primary hover:text-primary/80 underline"
+                        >
+                          {club.website}
+                        </a>
+                      </div>
                     )}
                   </div>
                 </CardContent>
@@ -338,7 +384,59 @@ const ClubDetails = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {members.length === 0 ? (
+                  {club.panel_members ? (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-muted/30 rounded-lg border border-border/50">
+                        <h3 className="font-semibold text-foreground mb-2">Panel Information</h3>
+                        <div className="text-foreground leading-relaxed whitespace-pre-line">{club.panel_members}</div>
+                      </div>
+                      
+                      {members.length > 0 && (
+                        <div className="mt-6">
+                          <h3 className="font-semibold text-foreground mb-4">Current Members</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {members
+                              .filter(member => 
+                                member.role === 'president' || 
+                                member.role === 'vice_president' || 
+                                member.role === 'director' || 
+                                member.role === 'secretary' || 
+                                member.role === 'treasurer' || 
+                                member.role === 'coordinator' ||
+                                member.detailed_role?.toLowerCase().includes('president') ||
+                                member.detailed_role?.toLowerCase().includes('director') ||
+                                member.detailed_role?.toLowerCase().includes('secretary') ||
+                                member.detailed_role?.toLowerCase().includes('treasurer') ||
+                                member.detailed_role?.toLowerCase().includes('coordinator')
+                              )
+                              .map((member) => {
+                                const fullName = member.user?.full_name || 'Unknown User';
+                                const initials = fullName.split(' ').map(n => n[0]).join('').toUpperCase();
+                                const role = member.detailed_role || member.role;
+                                const department = member.user?.department || 'N/A';
+                                const deptAbbr = department.length > 3 ? department.substring(0, 3).toUpperCase() : department.toUpperCase();
+                                
+                                return (
+                                  <div key={member.id} className="group flex items-center space-x-4 p-6 bg-muted/30 hover:bg-muted/50 rounded-xl transition-all duration-300 hover:shadow-md hover:scale-[1.02] border border-border/50">
+                                    <div className="relative w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center ring-2 ring-primary/20 group-hover:ring-primary/40 transition-all duration-300">
+                                      <span className="text-lg font-semibold text-primary">{initials}</span>
+                                      <div className="absolute -top-1 -left-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                                        <div className="w-2 h-2 bg-white rounded-full"></div>
+                                      </div>
+                                    </div>
+                                    <div className="flex-1">
+                                      <h3 className="font-semibold text-foreground text-lg mb-1">{fullName}</h3>
+                                      <p className="text-sm text-primary font-medium mb-1">{role}</p>
+                                      <p className="text-xs text-muted-foreground font-mono">{deptAbbr}</p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : members.length === 0 ? (
                     <p className="text-muted-foreground text-center py-8">No panel members found for this club.</p>
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -393,45 +491,59 @@ const ClubDetails = () => {
                       <Calendar className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <CardTitle className="text-xl">Upcoming Events</CardTitle>
-                      <CardDescription className="mt-1">Don't miss our exciting upcoming activities</CardDescription>
+                      <CardTitle className="text-xl">Events</CardTitle>
+                      <CardDescription className="mt-1">Our upcoming and previous events</CardDescription>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  {events.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-8">No upcoming events found for this club.</p>
-                  ) : (
-                    <div className="space-y-4">
-                      {events.map((event) => (
-                        <div key={event.id} className="group p-6 border border-border/50 hover:border-primary/30 rounded-xl bg-gradient-to-r from-background to-muted/20 hover:shadow-lg transition-all duration-300 hover:scale-[1.01]">
-                          <div className="flex items-start justify-between mb-2">
-                            <h3 className="font-semibold text-foreground">{event.title}</h3>
-                            <Badge variant="outline" className="group-hover:bg-primary/10 transition-colors duration-300">{event.type}</Badge>
-                          </div>
-                          <p className="text-muted-foreground mb-3">{event.description}</p>
-                          <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                            <div className="flex items-center">
-                              <Calendar className="h-4 w-4 mr-1" />
-                              {new Date(event.start_date).toLocaleDateString()}
-                            </div>
-                            {event.start_time && (
-                              <div className="flex items-center">
-                                <Clock className="h-4 w-4 mr-1" />
-                                {event.start_time}
-                              </div>
-                            )}
-                            {event.location && (
-                              <div className="flex items-center">
-                                <MapPin className="h-4 w-4 mr-1" />
-                                {event.location}
-                              </div>
-                            )}
-                          </div>
+                  <div className="space-y-6">
+                    {club.previous_events && (
+                      <div>
+                        <h3 className="text-lg font-semibold mb-4 text-foreground">Previous Events</h3>
+                        <div className="p-4 bg-muted/30 rounded-lg border border-border/50">
+                          <div className="text-foreground leading-relaxed whitespace-pre-line">{club.previous_events}</div>
                         </div>
-                      ))}
+                      </div>
+                    )}
+                    
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4 text-foreground">Upcoming Events</h3>
+                      {events.length === 0 ? (
+                        <p className="text-muted-foreground text-center py-8">No upcoming events found for this club.</p>
+                      ) : (
+                        <div className="space-y-4">
+                          {events.map((event) => (
+                            <div key={event.id} className="group p-6 border border-border/50 hover:border-primary/30 rounded-xl bg-gradient-to-r from-background to-muted/20 hover:shadow-lg transition-all duration-300 hover:scale-[1.01]">
+                              <div className="flex items-start justify-between mb-2">
+                                <h3 className="font-semibold text-foreground">{event.title}</h3>
+                                <Badge variant="outline" className="group-hover:bg-primary/10 transition-colors duration-300">{event.type}</Badge>
+                              </div>
+                              <p className="text-muted-foreground mb-3">{event.description}</p>
+                              <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+                                <div className="flex items-center">
+                                  <Calendar className="h-4 w-4 mr-1" />
+                                  {new Date(event.start_date).toLocaleDateString()}
+                                </div>
+                                {event.start_time && (
+                                  <div className="flex items-center">
+                                    <Clock className="h-4 w-4 mr-1" />
+                                    {event.start_time}
+                                  </div>
+                                )}
+                                {event.location && (
+                                  <div className="flex items-center">
+                                    <MapPin className="h-4 w-4 mr-1" />
+                                    {event.location}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -450,36 +562,44 @@ const ClubDetails = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-6">
-                    <div className="group flex gap-4 p-4 rounded-xl hover:bg-muted/30 transition-all duration-300">
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                          <Award className="h-6 w-6 text-primary group-hover:text-primary/80 transition-colors duration-300" />
-                        </div>
-                      </div>
-                      <div className="flex-grow">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-foreground">Best Computer Club Award</h3>
-                          <Badge variant="secondary">2024</Badge>
-                        </div>
-                        <p className="text-muted-foreground">Recognized as the best computer club in the university for outstanding contributions.</p>
+                  {club.achievements ? (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-muted/30 rounded-lg border border-border/50">
+                        <div className="text-foreground leading-relaxed whitespace-pre-line">{club.achievements}</div>
                       </div>
                     </div>
-                    <div className="group flex gap-4 p-4 rounded-xl hover:bg-muted/30 transition-all duration-300">
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                          <Award className="h-6 w-6 text-primary group-hover:text-primary/80 transition-colors duration-300" />
+                  ) : (
+                    <div className="space-y-6">
+                      <div className="group flex gap-4 p-4 rounded-xl hover:bg-muted/30 transition-all duration-300">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                            <Award className="h-6 w-6 text-primary group-hover:text-primary/80 transition-colors duration-300" />
+                          </div>
+                        </div>
+                        <div className="flex-grow">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold text-foreground">Best Computer Club Award</h3>
+                            <Badge variant="secondary">2024</Badge>
+                          </div>
+                          <p className="text-muted-foreground">Recognized as the best computer club in the university for outstanding contributions.</p>
                         </div>
                       </div>
-                      <div className="flex-grow">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-foreground">Inter-University Programming Contest Winners</h3>
-                          <Badge variant="secondary">2023</Badge>
+                      <div className="group flex gap-4 p-4 rounded-xl hover:bg-muted/30 transition-all duration-300">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                            <Award className="h-6 w-6 text-primary group-hover:text-primary/80 transition-colors duration-300" />
+                          </div>
                         </div>
-                        <p className="text-muted-foreground">Our team secured 1st position in the national programming contest.</p>
+                        <div className="flex-grow">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold text-foreground">Inter-University Programming Contest Winners</h3>
+                            <Badge variant="secondary">2023</Badge>
+                          </div>
+                          <p className="text-muted-foreground">Our team secured 1st position in the national programming contest.</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -498,56 +618,65 @@ const ClubDetails = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="group p-6 border border-border/50 hover:border-primary/30 rounded-xl bg-gradient-to-r from-background to-muted/20 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-5 w-5 text-primary group-hover:scale-110 transition-transform duration-300" />
-                          <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors duration-300">Web Development</h3>
-                        </div>
-                        <Badge variant="outline" className="group-hover:bg-primary/10 transition-colors duration-300">{Math.floor(members.length * 0.3)} members</Badge>
+                  {club.departments ? (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-muted/30 rounded-lg border border-border/50">
+                        <h3 className="font-semibold text-foreground mb-2">Our Departments</h3>
+                        <div className="text-foreground leading-relaxed">{club.departments}</div>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Team Lead: <span className="font-medium">Team Lead</span>
-                      </p>
                     </div>
-                    <div className="group p-6 border border-border/50 hover:border-primary/30 rounded-xl bg-gradient-to-r from-background to-muted/20 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-5 w-5 text-primary group-hover:scale-110 transition-transform duration-300" />
-                          <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors duration-300">Mobile App Development</h3>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="group p-6 border border-border/50 hover:border-primary/30 rounded-xl bg-gradient-to-r from-background to-muted/20 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-5 w-5 text-primary group-hover:scale-110 transition-transform duration-300" />
+                            <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors duration-300">Web Development</h3>
+                          </div>
+                          <Badge variant="outline" className="group-hover:bg-primary/10 transition-colors duration-300">{Math.floor(members.length * 0.3)} members</Badge>
                         </div>
-                        <Badge variant="outline" className="group-hover:bg-primary/10 transition-colors duration-300">{Math.floor(members.length * 0.25)} members</Badge>
+                        <p className="text-sm text-muted-foreground">
+                          Team Lead: <span className="font-medium">Team Lead</span>
+                        </p>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Team Lead: <span className="font-medium">Team Lead</span>
-                      </p>
-                    </div>
-                    <div className="group p-6 border border-border/50 hover:border-primary/30 rounded-xl bg-gradient-to-r from-background to-muted/20 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-5 w-5 text-primary group-hover:scale-110 transition-transform duration-300" />
-                          <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors duration-300">Data Science & AI</h3>
+                      <div className="group p-6 border border-border/50 hover:border-primary/30 rounded-xl bg-gradient-to-r from-background to-muted/20 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-5 w-5 text-primary group-hover:scale-110 transition-transform duration-300" />
+                            <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors duration-300">Mobile App Development</h3>
+                          </div>
+                          <Badge variant="outline" className="group-hover:bg-primary/10 transition-colors duration-300">{Math.floor(members.length * 0.25)} members</Badge>
                         </div>
-                        <Badge variant="outline" className="group-hover:bg-primary/10 transition-colors duration-300">{Math.floor(members.length * 0.2)} members</Badge>
+                        <p className="text-sm text-muted-foreground">
+                          Team Lead: <span className="font-medium">Team Lead</span>
+                        </p>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Team Lead: <span className="font-medium">Team Lead</span>
-                      </p>
-                    </div>
-                    <div className="group p-6 border border-border/50 hover:border-primary/30 rounded-xl bg-gradient-to-r from-background to-muted/20 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-5 w-5 text-primary group-hover:scale-110 transition-transform duration-300" />
-                          <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors duration-300">Cybersecurity</h3>
+                      <div className="group p-6 border border-border/50 hover:border-primary/30 rounded-xl bg-gradient-to-r from-background to-muted/20 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-5 w-5 text-primary group-hover:scale-110 transition-transform duration-300" />
+                            <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors duration-300">Data Science & AI</h3>
+                          </div>
+                          <Badge variant="outline" className="group-hover:bg-primary/10 transition-colors duration-300">{Math.floor(members.length * 0.2)} members</Badge>
                         </div>
-                        <Badge variant="outline" className="group-hover:bg-primary/10 transition-colors duration-300">{Math.floor(members.length * 0.15)} members</Badge>
+                        <p className="text-sm text-muted-foreground">
+                          Team Lead: <span className="font-medium">Team Lead</span>
+                        </p>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Team Lead: <span className="font-medium">Team Lead</span>
-                      </p>
+                      <div className="group p-6 border border-border/50 hover:border-primary/30 rounded-xl bg-gradient-to-r from-background to-muted/20 hover:shadow-lg transition-all duration-300 hover:scale-[1.02]">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-5 w-5 text-primary group-hover:scale-110 transition-transform duration-300" />
+                            <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors duration-300">Cybersecurity</h3>
+                          </div>
+                          <Badge variant="outline" className="group-hover:bg-primary/10 transition-colors duration-300">{Math.floor(members.length * 0.15)} members</Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Team Lead: <span className="font-medium">Team Lead</span>
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
