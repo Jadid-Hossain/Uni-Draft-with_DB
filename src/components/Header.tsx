@@ -9,6 +9,8 @@ import {
   Calendar,
   MessageSquare,
   BookOpen,
+  Briefcase,
+  Bot,
   User,
   Settings,
   LogOut,
@@ -42,6 +44,8 @@ const Header = () => {
       icon: BookOpen,
       requireAuth: true,
     },
+    { name: "Careers", href: "/careers", icon: Briefcase, requireAuth: true },
+    { name: "Assistant", href: "/assistant", icon: Bot, requireAuth: true },
   ];
 
   const authenticatedNavItems = [
