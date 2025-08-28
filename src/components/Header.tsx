@@ -34,6 +34,7 @@ const Header = () => {
   const navigationItems = [
     { name: "Clubs", href: "/clubs", icon: Users, requireAuth: true },
     { name: "Events", href: "/events", icon: Calendar, requireAuth: true },
+    { name: "Social Feed", href: "/social-feed", icon: MessageSquare, requireAuth: true },
     { name: "Forums", href: "/forum", icon: MessageSquare, requireAuth: true },
     {
       name: "Resources",
@@ -44,7 +45,7 @@ const Header = () => {
   ];
 
   const authenticatedNavItems = [
-    { name: "Chat", href: "/chat", icon: MessageSquare },
+    { name: "Chat", href: "/chat2", icon: MessageSquare },
     ...(user?.role !== "admin"
       ? [{ name: "Profile", href: "/profile", icon: User }]
       : []),

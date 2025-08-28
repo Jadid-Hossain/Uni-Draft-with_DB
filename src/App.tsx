@@ -15,11 +15,14 @@ import Profile from "./pages/Profile";
 import AdminDashboard from "./pages/AdminDashboard";
 // import UserDashboard from "./pages/Profile";
 import Chat from "./pages/Chat";
+import Chat2 from "./pages/Chat2";
 import JoinClub from "./pages/JoinClub";
+import ClubDetails from "./pages/ClubDetails";
 import EventRegistration from "./pages/EventRegistration";
 import Resources from "./pages/Resources";
 import LearnMore from "./pages/LearnMore";
 import ClubDashboard from "./pages/ClubDashboard";
+import SocialFeed from "./pages/SocialFeed";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -94,6 +97,14 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/chat2"
+              element={
+                <ProtectedRoute>
+                  <Chat2 />
+                </ProtectedRoute>
+              }
+            />
             {/* <Route
               path="/dashboard"
               element={
@@ -123,6 +134,22 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <EventRegistration />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/club-details/:id"
+              element={
+                <ProtectedRoute>
+                  <ClubDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/social-feed"
+              element={
+                <ProtectedRoute>
+                  <SocialFeed />
                 </ProtectedRoute>
               }
             />

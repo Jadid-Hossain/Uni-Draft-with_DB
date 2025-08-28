@@ -44,12 +44,25 @@ const ClubManagement = () => {
     description: "",
     category: "",
     location: "",
+    address: "",
     meeting_day: "",
     meeting_time: "",
     max_members: "",
     requirements: "",
     contact_email: "",
-    contact_phone: ""
+    club_mail: "",
+    contact_phone: "",
+    club_details: "",
+    panel_members: [],
+    previous_events: [],
+    achievements: [],
+    departments: [],
+    website: "",
+    social_media: {},
+    founded_date: "",
+    mission_statement: "",
+    vision_statement: "",
+    is_public: true
   });
 
   const categories = [
@@ -87,12 +100,25 @@ const ClubManagement = () => {
       description: "",
       category: "",
       location: "",
+      address: "",
       meeting_day: "",
       meeting_time: "",
       max_members: "",
       requirements: "",
       contact_email: "",
-      contact_phone: ""
+      club_mail: "",
+      contact_phone: "",
+      club_details: "",
+      panel_members: [],
+      previous_events: [],
+      achievements: [],
+      departments: [],
+      website: "",
+      social_media: {},
+      founded_date: "",
+      mission_statement: "",
+      vision_statement: "",
+      is_public: true
     });
     setEditingClub(null);
   };
@@ -103,12 +129,25 @@ const ClubManagement = () => {
       description: formData.description,
       category: formData.category,
       location: formData.location || undefined,
+      address: formData.address || undefined,
       meeting_day: formData.meeting_day || undefined,
       meeting_time: formData.meeting_time || undefined,
       max_members: formData.max_members ? parseInt(formData.max_members) : undefined,
       requirements: formData.requirements || undefined,
       contact_email: formData.contact_email || undefined,
+      club_mail: formData.club_mail || undefined,
       contact_phone: formData.contact_phone || undefined,
+      club_details: formData.club_details || undefined,
+      panel_members: formData.panel_members || undefined,
+      previous_events: formData.previous_events || undefined,
+      achievements: formData.achievements || undefined,
+      departments: formData.departments || undefined,
+      website: formData.website || undefined,
+      social_media: formData.social_media || undefined,
+      founded_date: formData.founded_date || undefined,
+      mission_statement: formData.mission_statement || undefined,
+      vision_statement: formData.vision_statement || undefined,
+      is_public: formData.is_public,
     };
 
     const clubId = await createClub(clubData);
@@ -130,12 +169,25 @@ const ClubManagement = () => {
       description: club.description,
       category: club.category,
       location: club.location || "",
+      address: club.address || "",
       meeting_day: club.meeting_day || "",
       meeting_time: club.meeting_time || "",
       max_members: club.max_members?.toString() || "",
       requirements: club.requirements || "",
       contact_email: club.contact_email || "",
+      club_mail: club.club_mail || "",
       contact_phone: club.contact_phone || "",
+      club_details: club.club_details || "",
+      panel_members: club.panel_members || [],
+      previous_events: club.previous_events || [],
+      achievements: club.achievements || [],
+      departments: club.departments || [],
+      website: club.website || "",
+      social_media: club.social_media || {},
+      founded_date: club.founded_date || "",
+      mission_statement: club.mission_statement || "",
+      vision_statement: club.vision_statement || "",
+      is_public: club.is_public ?? true,
     });
     setIsDialogOpen(true);
   };
@@ -148,12 +200,25 @@ const ClubManagement = () => {
       description: formData.description,
       category: formData.category,
       location: formData.location || undefined,
+      address: formData.address || undefined,
       meeting_day: formData.meeting_day || undefined,
       meeting_time: formData.meeting_time || undefined,
       max_members: formData.max_members ? parseInt(formData.max_members) : undefined,
       requirements: formData.requirements || undefined,
       contact_email: formData.contact_email || undefined,
+      club_mail: formData.club_mail || undefined,
       contact_phone: formData.contact_phone || undefined,
+      club_details: formData.club_details || undefined,
+      panel_members: formData.panel_members || undefined,
+      previous_events: formData.previous_events || undefined,
+      achievements: formData.achievements || undefined,
+      departments: formData.departments || undefined,
+      website: formData.website || undefined,
+      social_media: formData.social_media || undefined,
+      founded_date: formData.founded_date || undefined,
+      mission_statement: formData.mission_statement || undefined,
+      vision_statement: formData.vision_statement || undefined,
+      is_public: formData.is_public,
     };
 
     const success = await updateClub(editingClub.id, clubData);
@@ -343,6 +408,17 @@ const ClubManagement = () => {
                     </div>
 
                     <div>
+                      <Label htmlFor="address">Club Address</Label>
+                      <Input
+                        id="address"
+                        name="address"
+                        value={formData.address}
+                        onChange={handleInputChange}
+                        placeholder="e.g., 123 University Ave, City, Country"
+                      />
+                    </div>
+
+                    <div>
                       <Label htmlFor="meeting_day">Meeting Day</Label>
                       <Select value={formData.meeting_day} onValueChange={(value) => handleSelectChange("meeting_day", value)}>
                         <SelectTrigger>
@@ -382,6 +458,18 @@ const ClubManagement = () => {
                     </div>
 
                     <div>
+                      <Label htmlFor="club_mail">Club Mail</Label>
+                      <Input
+                        id="club_mail"
+                        name="club_mail"
+                        type="email"
+                        value={formData.club_mail}
+                        onChange={handleInputChange}
+                        placeholder="club.official@university.edu"
+                      />
+                    </div>
+
+                    <div>
                       <Label htmlFor="contact_phone">Contact Phone</Label>
                       <Input
                         id="contact_phone"
@@ -389,6 +477,131 @@ const ClubManagement = () => {
                         value={formData.contact_phone}
                         onChange={handleInputChange}
                         placeholder="+880 1234-567890"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Additional Club Information */}
+                  <div className="md:col-span-2 space-y-4">
+                    <div>
+                      <Label htmlFor="club_details">Club Details (Extended Description)</Label>
+                      <Textarea
+                        id="club_details"
+                        name="club_details"
+                        value={formData.club_details}
+                        onChange={handleInputChange}
+                        placeholder="Provide detailed information about the club's activities, goals, and structure..."
+                        rows={4}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="mission_statement">Mission Statement</Label>
+                      <Textarea
+                        id="mission_statement"
+                        name="mission_statement"
+                        value={formData.mission_statement}
+                        onChange={handleInputChange}
+                        placeholder="What is the club's mission and purpose?"
+                        rows={3}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="vision_statement">Vision Statement</Label>
+                      <Textarea
+                        id="vision_statement"
+                        name="vision_statement"
+                        value={formData.vision_statement}
+                        onChange={handleInputChange}
+                        placeholder="What is the club's vision for the future?"
+                        rows={3}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="website">Club Website</Label>
+                        <Input
+                          id="website"
+                          name="website"
+                          value={formData.website}
+                          onChange={handleInputChange}
+                          placeholder="https://club-website.com"
+                          type="url"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="founded_date">Founded Date</Label>
+                        <Input
+                          id="founded_date"
+                          name="founded_date"
+                          value={formData.founded_date}
+                          onChange={handleInputChange}
+                          placeholder="YYYY-MM-DD"
+                          type="date"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="departments">Club Departments/Teams</Label>
+                      <Textarea
+                        id="departments"
+                        name="departments"
+                        value={formData.departments}
+                        onChange={handleInputChange}
+                        placeholder="List the main departments or teams within the club (e.g., Events Team, Marketing Team, Technical Team)"
+                        rows={3}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="panel_members">Executive Panel Members</Label>
+                      <Textarea
+                        id="panel_members"
+                        name="panel_members"
+                        value={formData.panel_members}
+                        onChange={handleInputChange}
+                        placeholder="List key panel members (e.g., President: John Doe, Vice President: Jane Smith, Secretary: Bob Johnson)"
+                        rows={3}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="achievements">Club Achievements</Label>
+                      <Textarea
+                        id="achievements"
+                        name="achievements"
+                        value={formData.achievements}
+                        onChange={handleInputChange}
+                        placeholder="List notable achievements, awards, or recognitions the club has received"
+                        rows={3}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="previous_events">Previous Events</Label>
+                      <Textarea
+                        id="previous_events"
+                        name="previous_events"
+                        value={formData.previous_events}
+                        onChange={handleInputChange}
+                        placeholder="List major events or activities the club has organized in the past"
+                        rows={3}
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="social_media">Social Media Links</Label>
+                      <Textarea
+                        id="social_media"
+                        name="social_media"
+                        value={formData.social_media}
+                        onChange={handleInputChange}
+                        placeholder="Facebook: https://facebook.com/club, Instagram: https://instagram.com/club, Twitter: https://twitter.com/club"
+                        rows={3}
                       />
                     </div>
                   </div>

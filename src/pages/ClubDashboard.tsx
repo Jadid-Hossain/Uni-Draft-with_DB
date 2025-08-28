@@ -114,6 +114,25 @@ const ClubDashboard = () => {
     description: "",
     category: "",
     is_public: true,
+    club_details: "",
+    panel_members: "",
+    previous_events: "",
+    achievements: "",
+    departments: "",
+    website: "",
+    social_media: "",
+    founded_date: "",
+    mission_statement: "",
+    vision_statement: "",
+    address: "",
+    meeting_day: "",
+    meeting_time: "",
+    max_members: "",
+    requirements: "",
+    contact_email: "",
+    club_mail: "",
+    contact_phone: "",
+    location: "",
   });
 
   const isSuperAdmin = user?.role === "admin";
@@ -380,6 +399,25 @@ const ClubDashboard = () => {
           description: newClubForm.description.trim(),
           category: newClubForm.category,
           is_public: newClubForm.is_public,
+          club_details: newClubForm.club_details.trim() || null,
+          panel_members: newClubForm.panel_members.trim() || null,
+          previous_events: newClubForm.previous_events.trim() || null,
+          achievements: newClubForm.achievements.trim() || null,
+          departments: newClubForm.departments.trim() || null,
+          website: newClubForm.website.trim() || null,
+          social_media: newClubForm.social_media.trim() || null,
+          founded_date: newClubForm.founded_date || null,
+          mission_statement: newClubForm.mission_statement.trim() || null,
+          vision_statement: newClubForm.vision_statement.trim() || null,
+          address: newClubForm.address.trim() || null,
+          meeting_day: newClubForm.meeting_day || null,
+          meeting_time: newClubForm.meeting_time || null,
+          max_members: newClubForm.max_members ? parseInt(newClubForm.max_members) : null,
+          requirements: newClubForm.requirements.trim() || null,
+          contact_email: newClubForm.contact_email.trim() || null,
+          club_mail: newClubForm.club_mail.trim() || null,
+          contact_phone: newClubForm.contact_phone.trim() || null,
+          location: newClubForm.location.trim() || null,
           created_by: user.id,
         })
         .select()
@@ -412,6 +450,25 @@ const ClubDashboard = () => {
         description: "",
         category: "",
         is_public: true,
+        club_details: "",
+        panel_members: "",
+        previous_events: "",
+        achievements: "",
+        departments: "",
+        website: "",
+        social_media: "",
+        founded_date: "",
+        mission_statement: "",
+        vision_statement: "",
+        address: "",
+        meeting_day: "",
+        meeting_time: "",
+        max_members: "",
+        requirements: "",
+        contact_email: "",
+        club_mail: "",
+        contact_phone: "",
+        location: "",
       });
       setShowCreateClubForm(false);
 
@@ -1397,7 +1454,7 @@ const ClubDashboard = () => {
       {/* Create New Club Modal */}
       {isSuperAdmin && showCreateClubForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background p-6 rounded-lg shadow-lg max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <div className="bg-background p-6 rounded-lg shadow-lg max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold">Create New Club</h2>
               <Button
@@ -1476,6 +1533,265 @@ const ClubDashboard = () => {
                     }
                   />
                   <Label htmlFor="new-club-public">Public club</Label>
+                </div>
+              </div>
+
+              {/* Additional Club Information */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-club-address">Club Address</Label>
+                    <Input
+                      id="new-club-address"
+                      placeholder="e.g., 123 University Ave, City, Country"
+                      value={newClubForm.address}
+                      onChange={(e) =>
+                        setNewClubForm({ ...newClubForm, address: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-club-location">Meeting Location</Label>
+                    <Input
+                      id="new-club-location"
+                      placeholder="e.g., Room 201, Main Building"
+                      value={newClubForm.location}
+                      onChange={(e) =>
+                        setNewClubForm({ ...newClubForm, location: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-club-meeting-day">Meeting Day</Label>
+                    <Select
+                      value={newClubForm.meeting_day}
+                      onValueChange={(value) =>
+                        setNewClubForm({ ...newClubForm, meeting_day: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select meeting day" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => (
+                          <SelectItem key={day} value={day}>
+                            {day}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-club-meeting-time">Meeting Time</Label>
+                    <Input
+                      id="new-club-meeting-time"
+                      placeholder="e.g., 3:00 PM - 5:00 PM"
+                      value={newClubForm.meeting_time}
+                      onChange={(e) =>
+                        setNewClubForm({ ...newClubForm, meeting_time: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-club-contact-email">Contact Email</Label>
+                    <Input
+                      id="new-club-contact-email"
+                      type="email"
+                      placeholder="club@university.edu"
+                      value={newClubForm.contact_email}
+                      onChange={(e) =>
+                        setNewClubForm({ ...newClubForm, contact_email: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-club-club-mail">Club Mail</Label>
+                    <Input
+                      id="new-club-club-mail"
+                      type="email"
+                      placeholder="club.official@university.edu"
+                      value={newClubForm.club_mail}
+                      onChange={(e) =>
+                        setNewClubForm({ ...newClubForm, club_mail: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-club-contact-phone">Contact Phone</Label>
+                    <Input
+                      id="new-club-contact-phone"
+                      placeholder="+880 1234-567890"
+                      value={newClubForm.contact_phone}
+                      onChange={(e) =>
+                        setNewClubForm({ ...newClubForm, contact_phone: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-club-max-members">Maximum Members</Label>
+                    <Input
+                      id="new-club-max-members"
+                      type="number"
+                      placeholder="e.g., 50"
+                      value={newClubForm.max_members}
+                      onChange={(e) =>
+                        setNewClubForm({ ...newClubForm, max_members: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-club-requirements">Requirements</Label>
+                  <Textarea
+                    id="new-club-requirements"
+                    placeholder="Any prerequisites or requirements for joining"
+                    rows={3}
+                    value={newClubForm.requirements}
+                    onChange={(e) =>
+                      setNewClubForm({ ...newClubForm, requirements: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-club-details">Club Details (Extended Description)</Label>
+                  <Textarea
+                    id="new-club-details"
+                    placeholder="Provide detailed information about the club's activities, goals, and structure..."
+                    rows={4}
+                    value={newClubForm.club_details}
+                    onChange={(e) =>
+                      setNewClubForm({ ...newClubForm, club_details: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-club-mission">Mission Statement</Label>
+                  <Textarea
+                    id="new-club-mission"
+                    placeholder="What is the club's mission and purpose?"
+                    rows={3}
+                    value={newClubForm.mission_statement}
+                    onChange={(e) =>
+                      setNewClubForm({ ...newClubForm, mission_statement: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-club-vision">Vision Statement</Label>
+                  <Textarea
+                    id="new-club-vision"
+                    placeholder="What is the club's vision for the future?"
+                    rows={3}
+                    value={newClubForm.vision_statement}
+                    onChange={(e) =>
+                      setNewClubForm({ ...newClubForm, vision_statement: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="new-club-website">Club Website</Label>
+                    <Input
+                      id="new-club-website"
+                      type="url"
+                      placeholder="https://club-website.com"
+                      value={newClubForm.website}
+                      onChange={(e) =>
+                        setNewClubForm({ ...newClubForm, website: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-club-founded">Founded Date</Label>
+                    <Input
+                      id="new-club-founded"
+                      type="date"
+                      placeholder="YYYY-MM-DD"
+                      value={newClubForm.founded_date}
+                      onChange={(e) =>
+                        setNewClubForm({ ...newClubForm, founded_date: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-club-departments">Club Departments/Teams</Label>
+                  <Textarea
+                    id="new-club-departments"
+                    placeholder="List the main departments or teams within the club (e.g., Events Team, Marketing Team, Technical Team)"
+                    rows={3}
+                    value={newClubForm.departments}
+                    onChange={(e) =>
+                      setNewClubForm({ ...newClubForm, departments: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-club-panel">Executive Panel Members</Label>
+                  <Textarea
+                    id="new-club-panel"
+                    placeholder="List key panel members (e.g., President: John Doe, Vice President: Jane Smith, Secretary: Bob Johnson)"
+                    rows={3}
+                    value={newClubForm.panel_members}
+                    onChange={(e) =>
+                      setNewClubForm({ ...newClubForm, panel_members: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-club-achievements">Club Achievements</Label>
+                  <Textarea
+                    id="new-club-achievements"
+                    placeholder="List notable achievements, awards, or recognitions the club has received"
+                    rows={3}
+                    value={newClubForm.achievements}
+                    onChange={(e) =>
+                      setNewClubForm({ ...newClubForm, achievements: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-club-events">Previous Events</Label>
+                  <Textarea
+                    id="new-club-events"
+                    placeholder="List major events or activities the club has organized in the past"
+                    rows={3}
+                    value={newClubForm.previous_events}
+                    onChange={(e) =>
+                      setNewClubForm({ ...newClubForm, previous_events: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-club-social">Social Media Links</Label>
+                  <Textarea
+                    id="new-club-social"
+                    placeholder="Facebook: https://facebook.com/club, Instagram: https://instagram.com/club, Twitter: https://twitter.com/club"
+                    rows={3}
+                    value={newClubForm.social_media}
+                    onChange={(e) =>
+                      setNewClubForm({ ...newClubForm, social_media: e.target.value })
+                    }
+                  />
                 </div>
               </div>
 

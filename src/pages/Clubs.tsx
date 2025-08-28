@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Search, Filter, Users, Calendar, MapPin, Star } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, Filter, Users, Calendar, MapPin, Star, Bell, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { useClubs } from "@/hooks/useDatabase";
+import { useClubSubscriptions } from "@/hooks/useClubSubscriptions";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { useAuth } from "@/context/AuthContext";
 
 const categories = [
   "All",
@@ -19,9 +21,102 @@ const categories = [
 ];
 
 const Clubs = () => {
+  const { user } = useAuth();
   const { clubs, loading, createClub } = useClubs();
+  const { 
+    subscriptions, 
+    subscribeToClub, 
+    unsubscribeFromClub, 
+    isSubscribedToClub,
+    getClubMemberCount,
+    getClubSubscriptionCount
+  } = useClubSubscriptions();
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
+  const [clubStats, setClubStats] = useState<{[key: string]: {members: number, subscribers: number}}>({});
+  const [loadingStats, setLoadingStats] = useState<{[key: string]: boolean}>({});
+
+  // Fetch member and subscriber counts for all clubs
+  useEffect(() => {
+    const fetchClubStats = async () => {
+      if (!clubs.length) return;
+      
+      const stats: {[key: string]: {members: number, subscribers: number}} = {};
+      
+      for (const club of clubs) {
+        try {
+          const [memberCount, subscriberCount] = await Promise.all([
+            getClubMemberCount(club.id),
+            getClubSubscriptionCount(club.id)
+          ]);
+          
+          stats[club.id] = {
+            members: memberCount,
+            subscribers: subscriberCount
+          };
+        } catch (error) {
+          console.error(`Error fetching stats for club ${club.id}:`, error);
+          stats[club.id] = { members: 0, subscribers: 0 };
+        }
+      }
+      
+      setClubStats(stats);
+    };
+
+    fetchClubStats();
+  }, [clubs, getClubMemberCount, getClubSubscriptionCount]);
+
+  // Handle subscribe/unsubscribe
+  const handleSubscriptionToggle = async (clubId: string) => {
+    if (!user) {
+      console.log('No user logged in');
+      return;
+    }
+    
+    console.log('Subscription toggle clicked for club:', clubId);
+    setLoadingStats(prev => ({ ...prev, [clubId]: true }));
+    
+    try {
+      const isSubscribed = isSubscribedToClub(clubId);
+      console.log('Current subscription status:', isSubscribed);
+      
+      if (isSubscribed) {
+        console.log('Attempting to unsubscribe...');
+        const result = await unsubscribeFromClub(clubId);
+        console.log('Unsubscribe result:', result);
+      } else {
+        console.log('Attempting to subscribe...');
+        const result = await subscribeToClub(clubId);
+        console.log('Subscribe result:', result);
+      }
+      
+      // Wait a moment for the database to update
+      setTimeout(async () => {
+        try {
+          // Refresh stats for this club
+          const [memberCount, subscriberCount] = await Promise.all([
+            getClubMemberCount(clubId),
+            getClubSubscriptionCount(clubId)
+          ]);
+          
+          console.log('Updated stats:', { memberCount, subscriberCount });
+          
+          setClubStats(prev => ({
+            ...prev,
+            [clubId]: { members: memberCount, subscribers: subscriberCount }
+          }));
+        } catch (error) {
+          console.error('Error refreshing stats:', error);
+        }
+      }, 500);
+      
+    } catch (error) {
+      console.error('Error toggling subscription:', error);
+    } finally {
+      setLoadingStats(prev => ({ ...prev, [clubId]: false }));
+    }
+  };
 
   // Temporary function to create test clubs
   const createTestClub = async () => {
@@ -134,12 +229,29 @@ const Clubs = () => {
                         {club.is_public ? "Public" : "Private"}
                       </Badge>
                     </div>
+                    {/* Subscription indicator */}
+                    {user && (() => {
+                      const isSubscribed = isSubscribedToClub(club.id);
+                      return isSubscribed ? (
+                        <div className="absolute top-4 left-4">
+                          <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                            <Bell className="h-3 w-3 mr-1" />
+                            Subscribed
+                          </Badge>
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
 
                   <div className="p-6">
                     <div className="flex items-start justify-between mb-3">
                       <h3 className="text-xl font-semibold group-hover:text-primary transition-colors">
-                        {club.name}
+                        <Link 
+                          to={`/club-details/${club.id}`}
+                          className="hover:underline cursor-pointer"
+                        >
+                          {club.name}
+                        </Link>
                       </h3>
                     </div>
 
@@ -154,6 +266,20 @@ const Clubs = () => {
                           Created{" "}
                           {new Date(club.created_at).toLocaleDateString()}
                         </span>
+                      </div>
+                    </div>
+
+                    {/* Club Stats */}
+                    <div className="flex items-center justify-between mb-4 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1">
+                          <Users className="h-4 w-4" />
+                          <span>{clubStats[club.id]?.members || 0} members</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Bell className="h-4 w-4" />
+                          <span>{clubStats[club.id]?.subscribers || 0} subscribers</span>
+                        </div>
                       </div>
                     </div>
 
@@ -172,6 +298,30 @@ const Clubs = () => {
                           Join Club
                         </Link>
                       </Button>
+                      
+                      {/* Subscribe/Unsubscribe Button */}
+                      {user && (() => {
+                        const isSubscribed = isSubscribedToClub(club.id);
+                        return (
+                          <Button
+                            variant={isSubscribed ? "default" : "outline"}
+                            size="icon"
+                            onClick={() => handleSubscriptionToggle(club.id)}
+                            disabled={loadingStats[club.id]}
+                            className={isSubscribed ? "bg-green-600 hover:bg-green-700" : ""}
+                            title={isSubscribed ? "Unsubscribe from club updates" : "Subscribe to club updates"}
+                          >
+                            {loadingStats[club.id] ? (
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                            ) : isSubscribed ? (
+                              <BellOff className="h-4 w-4" />
+                            ) : (
+                              <Bell className="h-4 w-4" />
+                            )}
+                          </Button>
+                        );
+                      })()}
+                      
                       <Button variant="outline" size="icon">
                         <Star className="h-4 w-4" />
                       </Button>
@@ -182,6 +332,8 @@ const Clubs = () => {
             )}
           </div>
         )}
+
+
 
         {/* Call to Action */}
         <div className="text-center mt-12">
