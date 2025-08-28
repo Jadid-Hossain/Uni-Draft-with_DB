@@ -8,12 +8,25 @@ export interface Club {
   description: string;
   category: string;
   location?: string;
+  address?: string;
   meeting_day?: string;
   meeting_time?: string;
   max_members?: number;
   requirements?: string;
   contact_email?: string;
+  club_mail?: string;
   contact_phone?: string;
+  club_details?: string;
+  panel_members?: any[];
+  previous_events?: any[];
+  achievements?: any[];
+  departments?: any[];
+  website?: string;
+  social_media?: any;
+  founded_date?: string;
+  mission_statement?: string;
+  vision_statement?: string;
+  is_public?: boolean;
   status: 'pending' | 'active' | 'inactive' | 'suspended';
   created_at: string;
   updated_at: string;
@@ -28,12 +41,25 @@ export interface CreateClubData {
   description: string;
   category: string;
   location?: string;
+  address?: string;
   meeting_day?: string;
   meeting_time?: string;
   max_members?: number;
   requirements?: string;
   contact_email?: string;
+  club_mail?: string;
   contact_phone?: string;
+  club_details?: string;
+  panel_members?: any[];
+  previous_events?: any[];
+  achievements?: any[];
+  departments?: any[];
+  website?: string;
+  social_media?: any;
+  founded_date?: string;
+  mission_statement?: string;
+  vision_statement?: string;
+  is_public?: boolean;
 }
 
 export const useClubManagement = () => {
@@ -78,12 +104,25 @@ export const useClubManagement = () => {
         _category: clubData.category,
         _created_by: user.id,
         _location: clubData.location || null,
+        _address: clubData.address || null,
         _meeting_day: clubData.meeting_day || null,
         _meeting_time: clubData.meeting_time || null,
         _max_members: clubData.max_members || null,
         _requirements: clubData.requirements || null,
         _contact_email: clubData.contact_email || null,
-        _contact_phone: clubData.contact_phone || null
+        _club_mail: clubData.club_mail || null,
+        _contact_phone: clubData.contact_phone || null,
+        _club_details: clubData.club_details || null,
+        _panel_members: clubData.panel_members || null,
+        _previous_events: clubData.previous_events || null,
+        _achievements: clubData.achievements || null,
+        _departments: clubData.departments || null,
+        _website: clubData.website || null,
+        _social_media: clubData.social_media || null,
+        _founded_date: clubData.founded_date || null,
+        _mission_statement: clubData.mission_statement || null,
+        _vision_statement: clubData.vision_statement || null,
+        _is_public: clubData.is_public ?? true
       });
 
       if (error) throw error;
@@ -117,12 +156,25 @@ export const useClubManagement = () => {
         _category: clubData.category,
         _user_id: user.id,
         _location: clubData.location || null,
+        _address: clubData.address || null,
         _meeting_day: clubData.meeting_day || null,
         _meeting_time: clubData.meeting_time || null,
         _max_members: clubData.max_members || null,
         _requirements: clubData.requirements || null,
         _contact_email: clubData.contact_email || null,
+        _club_mail: clubData.club_mail || null,
         _contact_phone: clubData.contact_phone || null,
+        _club_details: clubData.club_details || null,
+        _panel_members: clubData.panel_members || null,
+        _previous_events: clubData.previous_events || null,
+        _achievements: clubData.achievements || null,
+        _departments: clubData.departments || null,
+        _website: clubData.website || null,
+        _social_media: clubData.social_media || null,
+        _founded_date: clubData.founded_date || null,
+        _mission_statement: clubData.mission_statement || null,
+        _vision_statement: clubData.vision_statement || null,
+        _is_public: clubData.is_public ?? true,
         _status: status || null
       });
 
