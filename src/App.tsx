@@ -22,6 +22,7 @@ import LearnMore from "./pages/LearnMore";
 import ClubDashboard from "./pages/ClubDashboard";
 import Careers from "./pages/Careers";
 import Assistant from "./pages/Assistant";
+import LostFound from "./pages/LostFound";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -84,6 +85,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Assistant />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/lost-found"
+              element={
+                <ProtectedRoute>
+                  <LostFound />
                 </ProtectedRoute>
               }
             />

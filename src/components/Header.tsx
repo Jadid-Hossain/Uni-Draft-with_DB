@@ -15,6 +15,7 @@ import {
   Settings,
   LogOut,
   Shield,
+  Search,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -43,6 +44,7 @@ const Header = () => {
       icon: BookOpen,
       requireAuth: true,
     },
+    { name: "Lost & Found", href: "/lost-found", icon: Search, requireAuth: true },
     { name: "Careers", href: "/careers", icon: Briefcase, requireAuth: true },
     { name: "Assistant", href: "/assistant", icon: Bot, requireAuth: true },
   ];
