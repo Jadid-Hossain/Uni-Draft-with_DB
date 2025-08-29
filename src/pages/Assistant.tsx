@@ -282,7 +282,7 @@ const Assistant = () => {
         {contextLoading ? (
           <Badge variant="secondary">Loading context…</Badge>
         ) : (
-          <Badge variant="outline">Context ready</Badge>
+          <Badge variant="outline">Context ready plus OpenAI</Badge>
         )}
         {usingAI && (
           <Badge variant="default" className="bg-blue-500">

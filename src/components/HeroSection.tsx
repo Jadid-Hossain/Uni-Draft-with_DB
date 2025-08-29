@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { AssistantCircleButton } from "@/components/AssistantCircleButton";
 import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
@@ -210,6 +211,8 @@ const HeroSection = () => {
           )}
         </div>
       </div>
+      {/* Floating AI Assistant Button */}
+      <AssistantCircleButton />
     </section>
   );
 };
