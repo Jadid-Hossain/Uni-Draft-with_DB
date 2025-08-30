@@ -39,7 +39,7 @@ const Assistant = () => {
   // WARNING: Exposing API keys in the browser is unsafe. Only use this for public/test keys or with proper backend proxying in production.
   const openAIClient = new OpenAI({
     baseURL: "https://router.huggingface.co/v1",
-    apiKey: "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",
+    apiKey: "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",
     dangerouslyAllowBrowser: true,
   });
 
@@ -211,7 +211,8 @@ const Assistant = () => {
       ];
 
       const response = await openAIClient.chat.completions.create({
-        model: "openai/gpt-oss-120b:cerebras",
+        // model: "openai/gpt-oss-120b:cerebras",
+        model: "deepseek-ai/DeepSeek-V3-0324:fireworks-ai",
         messages,
         temperature: 0.7,
         max_tokens: 500,
