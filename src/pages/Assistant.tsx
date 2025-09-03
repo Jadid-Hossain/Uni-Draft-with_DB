@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { Loader2, Send, Bot, User } from "lucide-react";
+import Layout from "@/components/Layout";
 
 type MessageRole = "user" | "assistant";
 
@@ -442,7 +443,8 @@ const Assistant = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <Layout>
+      <div className="container mx-auto px-4 py-6">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Bot className="h-6 w-6" />
@@ -516,7 +518,8 @@ const Assistant = () => {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </Layout>
   );
 };
 

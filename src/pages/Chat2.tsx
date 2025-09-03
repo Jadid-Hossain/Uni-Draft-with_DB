@@ -15,11 +15,15 @@ import {
   Hash,
   Paperclip,
   Image,
-  MessageSquare
+  MessageSquare,
+  X,
+  Upload
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
 import { useChat2, type Conversation, type Message } from "@/hooks/useChat2";
+import { supabase } from "@/lib/supabase";
+import { uploadImageToCloudinary } from "@/lib/cloudinary";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -50,6 +54,10 @@ const Chat = () => {
   const [showMembersDialog, setShowMembersDialog] = useState(false);
   const [members, setMembers] = useState<Array<{ user_id: string; full_name?: string; email?: string; student_id?: string }>>([]);
   const [memberStudentId, setMemberStudentId] = useState("");
+  const [conversationAvatars, setConversationAvatars] = useState<Record<string, string>>({});
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const {
@@ -74,6 +82,89 @@ const Chat = () => {
   const currentConversation = conversations.find(c => c.id === selectedConversation);
   const currentMessages = selectedConversation ? messages[selectedConversation] || [] : [];
 
+
+
+  // Fetch avatar for a specific user by student ID
+  const fetchUserAvatarByStudentId = async (studentId: string) => {
+    try {
+      // Try to fetch from users table first
+      let { data, error } = await supabase
+        .from("users")
+        .select("id, avatar_url")
+        .eq("student_id", studentId)
+        .single();
+
+      // If that fails, try manual_users table as fallback
+      if (error) {
+        if (error.code === "PGRST116" || error.code === "PGRST204") {
+          const fallbackResult = await supabase
+            .from("manual_users")
+            .select("id, avatar_url")
+            .eq("student_id", studentId)
+            .single();
+          
+          data = fallbackResult.data;
+          error = fallbackResult.error;
+        }
+      }
+
+      if (!error && data?.avatar_url) {
+        return { userId: data.id, avatarUrl: data.avatar_url };
+      }
+      return null;
+    } catch (err) {
+      console.error("Error fetching user avatar by student ID:", err);
+      return null;
+    }
+  };
+
+  // Fetch avatar for a specific conversation
+  const fetchConversationAvatar = async (conversationId: string) => {
+    const conversation = conversations.find(c => c.id === conversationId);
+    
+    if (!conversation || conversation.type !== 'direct' || !conversation.participants) {
+      return;
+    }
+
+    try {
+      // Find the other participant
+      const otherParticipantId = conversation.participants.find(id => id !== user?.id);
+      if (!otherParticipantId) {
+        return;
+      }
+
+      // Try to fetch from users table first
+      let { data, error } = await supabase
+        .from("users")
+        .select("avatar_url")
+        .eq("id", otherParticipantId)
+        .single();
+
+      // If that fails, try manual_users table as fallback
+      if (error) {
+        if (error.code === "PGRST116" || error.code === "PGRST204") {
+          const fallbackResult = await supabase
+            .from("manual_users")
+            .select("avatar_url")
+            .eq("id", otherParticipantId)
+            .single();
+          
+          data = fallbackResult.data;
+          error = fallbackResult.error;
+        }
+      }
+
+      if (!error && data?.avatar_url) {
+        setConversationAvatars(prev => ({
+          ...prev,
+          [conversationId]: data.avatar_url
+        }));
+      }
+    } catch (err) {
+      console.error("Error fetching conversation avatar:", err);
+    }
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -82,22 +173,122 @@ const Chat = () => {
     scrollToBottom();
   }, [currentMessages]);
 
+
+
+  // Listen for avatar refresh events
+  useEffect(() => {
+    const handleAvatarRefresh = () => {
+      // Refresh avatar for currently selected conversation
+      if (selectedConversation) {
+        fetchConversationAvatar(selectedConversation);
+      }
+    };
+
+    window.addEventListener('avatar-refreshed', handleAvatarRefresh);
+    return () => {
+      window.removeEventListener('avatar-refreshed', handleAvatarRefresh);
+    };
+  }, [selectedConversation]);
+
+  // Fetch avatar when a conversation is selected
+  useEffect(() => {
+    if (selectedConversation) {
+      fetchConversationAvatar(selectedConversation);
+    }
+  }, [selectedConversation]);
+
+  // Fetch avatars for existing conversations when they're loaded
+  useEffect(() => {
+    if (conversations.length > 0) {
+      conversations.forEach(conversation => {
+        if (conversation.type === 'direct') {
+          if (!conversationAvatars[conversation.id]) {
+            fetchConversationAvatar(conversation.id);
+          }
+        }
+      });
+    }
+  }, [conversations]); // Removed conversationAvatars dependency to avoid infinite loop
+
+
+
+  // Force fetch avatars when component mounts and conversations are available
+  useEffect(() => {
+    if (conversations.length > 0 && user) {
+      conversations.forEach(conversation => {
+        if (conversation.type === 'direct') {
+          // Force fetch even if avatar exists
+          fetchConversationAvatar(conversation.id);
+        }
+      });
+    }
+  }, [conversations, user]); // Only run when conversations or user changes
+
   const handleSendMessage = async () => {
-    if (message.trim()) {
-      const success = await sendMessage(message);
+    if (message.trim() || selectedImage) {
+      const success = await sendMessage(message, undefined, selectedImage);
       if (success) {
         setMessage("");
+        setSelectedImage(null);
+        setImagePreview(null);
       }
     }
   };
 
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+      
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size should be less than 5MB');
+        return;
+      }
+
+      setSelectedImage(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeSelectedImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+  };
+
   const handleCreateConversation = async () => {
     if (!studentIdQuery.trim()) return;
-    // start direct chat by student id
+    
+    try {
+      // First, fetch the user's avatar by student ID
+      const avatarData = await fetchUserAvatarByStudentId(studentIdQuery.trim());
+      
+      // Start direct chat by student id
     const id = await startDirectConversationWithStudentId(studentIdQuery.trim());
     if (id) {
+        // If we found an avatar, store it for this conversation
+        if (avatarData?.avatarUrl) {
+          setConversationAvatars(prev => ({
+            ...prev,
+            [id]: avatarData.avatarUrl
+          }));
+        }
+        
       setShowNewConversation(false);
       setStudentIdQuery("");
+      }
+    } catch (error) {
+      console.error("Error creating conversation:", error);
     }
   };
 
@@ -146,6 +337,8 @@ const Chat = () => {
                 </Button>
               </div>
               
+              
+              
               {/* New Conversation Modal */}
               {showNewConversation && (
                 <div className="mb-4 p-3 border rounded-lg bg-muted/50">
@@ -187,6 +380,8 @@ const Chat = () => {
                   className="pl-10"
                 />
               </div>
+              
+
             </div>
 
             {/* Conversations List */}
@@ -220,7 +415,7 @@ const Chat = () => {
                       <div className="flex items-start space-x-3">
                         <div className="relative">
                           <Avatar className="h-12 w-12">
-                            <AvatarImage src={conversation.avatar} />
+                             <AvatarImage src={conversationAvatars[conversation.id] || conversation.avatar} />
                             <AvatarFallback className="bg-gradient-primary text-primary-foreground">
                               {conversation.type === 'group' ? (
                                 <Users className="h-6 w-6" />
@@ -278,7 +473,7 @@ const Chat = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={currentConversation.avatar} />
+                         <AvatarImage src={conversationAvatars[currentConversation.id] || currentConversation.avatar} />
                         <AvatarFallback className="bg-gradient-primary text-primary-foreground">
                           {currentConversation.type === 'group' ? (
                             <Users className="h-5 w-5" />
@@ -553,7 +748,24 @@ const Chat = () => {
                               {msg.sender_name || msg.sender}
                             </p>
                           )}
+                           
+                           {/* Image Display */}
+                           {msg.image_url && (
+                             <div className="mb-2">
+                               <img 
+                                 src={msg.image_url} 
+                                 alt="Message image" 
+                                 className="max-w-full max-h-64 rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                 onClick={() => window.open(msg.image_url, '_blank')}
+                               />
+                             </div>
+                           )}
+                           
+                           {/* Text Content */}
+                           {msg.content && (
                           <p className="text-sm">{msg.content}</p>
+                           )}
+                           
                           <p className={`text-xs mt-1 ${
                             msg.isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
                           }`}>
@@ -568,24 +780,72 @@ const Chat = () => {
 
                 {/* Message Input - Fixed at bottom */}
                 <div className="p-4 border-t border-border bg-card flex-shrink-0">
+                   {/* Image Preview */}
+                   {imagePreview && (
+                     <div className="mb-3 relative">
+                       <div className="relative inline-block">
+                         <img 
+                           src={imagePreview} 
+                           alt="Preview" 
+                           className="max-w-48 max-h-48 rounded-lg object-cover"
+                         />
+                         <Button
+                           size="icon"
+                           variant="destructive"
+                           className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                           onClick={removeSelectedImage}
+                         >
+                           <X className="h-3 w-3" />
+                         </Button>
+                       </div>
+                     </div>
+                   )}
+                   
                   <div className="flex items-center space-x-2">
                     <Button size="icon" variant="ghost">
                       <Paperclip className="h-5 w-5" />
                     </Button>
-                    <Button size="icon" variant="ghost">
+                     
+                     {/* Image Upload Button */}
+                     <div className="relative">
+                       <input
+                         type="file"
+                         accept="image/*"
+                         onChange={handleImageSelect}
+                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                         id="image-upload"
+                       />
+                       <Button 
+                         size="icon" 
+                         variant="ghost"
+                         className={selectedImage ? "text-blue-600" : ""}
+                         disabled={isUploadingImage}
+                       >
                       <Image className="h-5 w-5" />
                     </Button>
+                     </div>
+                     
                     <div className="flex-1 relative">
                       <Input
-                        placeholder="Type a message..."
+                         placeholder={selectedImage ? "Add a message (optional)..." : "Type a message..."}
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
                         className="pr-10"
+                         disabled={isUploadingImage}
                       />
                     </div>
-                    <Button onClick={handleSendMessage} className="bg-gradient-hero">
+                     
+                     <Button 
+                       onClick={handleSendMessage} 
+                       className="bg-gradient-hero"
+                       disabled={isUploadingImage || (!message.trim() && !selectedImage)}
+                     >
+                       {isUploadingImage ? (
+                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                       ) : (
                       <Send className="h-4 w-4" />
+                       )}
                     </Button>
                   </div>
                 </div>

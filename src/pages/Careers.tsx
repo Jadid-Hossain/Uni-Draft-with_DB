@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/context/AuthContext";
+import Layout from "@/components/Layout";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 
@@ -188,7 +189,8 @@ const Careers = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6">
+    <Layout>
+      <div className="container mx-auto px-4 py-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-semibold">Careers</h2>
         <Button onClick={() => setFormOpen(true)}>New</Button>
@@ -339,7 +341,8 @@ const Careers = () => {
           ))
         )}
       </div>
-    </div>
+      </div>
+    </Layout>
   );
 };
 

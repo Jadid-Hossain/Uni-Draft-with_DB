@@ -221,19 +221,56 @@ const Clubs = () => {
                   className="group hover:shadow-lg transition-all duration-300 border-0 bg-gradient-card"
                 >
                   <div className="relative">
-                    <div className="w-full h-48 bg-gradient-to-br from-green-500 to-blue-600 rounded-t-lg flex items-center justify-center">
-                      <Users className="h-12 w-12 text-white" />
+                    <div className="w-full h-48 rounded-t-lg overflow-hidden">
+                      {club.club_image_url ? (
+                        <>
+                          <img 
+                            src={club.club_image_url} 
+                            alt={`${club.name} club image`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              // Fallback to placeholder if image fails to load
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              target.nextElementSibling?.classList.remove('hidden');
+                            }}
+                          />
+                          <div className="w-full h-full bg-gradient-to-br from-green-500 to-blue-600 flex items-center justify-center hidden">
+                            <Users className="h-12 w-12 text-white" />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-green-500 to-blue-600 flex items-center justify-center">
+                          <Users className="h-12 w-12 text-white" />
+                        </div>
+                      )}
                     </div>
+                    {/* Club Logo - Small display in top-left */}
+                    {club.club_logo_url && (
+                      <div className="absolute top-4 left-4 w-12 h-12 rounded-lg overflow-hidden border-2 border-background/80 bg-background/80 shadow-sm">
+                        <img
+                          src={club.club_logo_url}
+                          alt={`${club.name} logo`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                    
                     <div className="absolute top-4 right-4">
                       <Badge variant="secondary" className="bg-background/80">
                         {club.is_public ? "Public" : "Private"}
                       </Badge>
                     </div>
+                    
                     {/* Subscription indicator */}
                     {user && (() => {
                       const isSubscribed = isSubscribedToClub(club.id);
                       return isSubscribed ? (
-                        <div className="absolute top-4 left-4">
+                        <div className={`absolute top-4 ${club.club_logo_url ? 'left-20' : 'left-4'}`}>
                           <Badge variant="default" className="bg-green-600 hover:bg-green-700">
                             <Bell className="h-3 w-3 mr-1" />
                             Subscribed

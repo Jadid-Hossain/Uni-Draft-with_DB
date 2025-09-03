@@ -9,6 +9,7 @@ import { useLostFound, LostFoundItem } from '@/hooks/useLostFound';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import LostFoundForm from '@/components/LostFoundForm';
+import Layout from '@/components/Layout';
 
 const LostFound = () => {
   const [showForm, setShowForm] = useState(false);
@@ -155,7 +156,8 @@ const LostFound = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <Layout>
+      <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Lost & Found</h1>
         <p className="text-muted-foreground">
@@ -307,7 +309,8 @@ const LostFound = () => {
           }}
         />
       )}
-    </div>
+      </div>
+    </Layout>
   );
 };
 

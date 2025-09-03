@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -40,11 +40,16 @@ import {
   Trash2,
   Pin,
   Lock,
+  Image as ImageIcon,
+  X,
+  Upload,
+  Loader,
 } from "lucide-react";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
+import { uploadImageToCloudinary, getOptimizedImageUrl } from "@/lib/cloudinary";
 
 interface ForumThread {
   id: string;
@@ -55,6 +60,7 @@ interface ForumThread {
   author_name?: string;
   category?: string;
   tags?: string[];
+  image_url?: string; // New field for thread images
   is_pinned?: boolean;
   is_locked?: boolean;
   view_count?: number;
@@ -72,6 +78,7 @@ interface ForumPost {
   updated_by?: string;
   author_name?: string;
   parent_post_id?: string;
+  image_url?: string; // New field for post images
   is_edited?: boolean;
   edited_at?: string;
   created_at: string;
@@ -92,6 +99,7 @@ const Forum = () => {
   const [showNewThreadDialog, setShowNewThreadDialog] = useState(false);
   const [showNewPostDialog, setShowNewPostDialog] = useState(false);
   const [showReplies, setShowReplies] = useState(false); // Toggle for showing replies
+  const [activeTab, setActiveTab] = useState<"all" | "my">("all");
   const [repliesEnabled, setRepliesEnabled] = useState(true); // Toggle for enabling replies
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -102,18 +110,46 @@ const Forum = () => {
     content: "",
     category: "",
     tags: "",
+    image_url: "",
   });
 
   const [postForm, setPostForm] = useState({
     content: "",
+    image_url: "",
   });
+
+  // Image upload states
+  const [threadImageFile, setThreadImageFile] = useState<File | null>(null);
+  const [postImageFile, setPostImageFile] = useState<File | null>(null);
+  const [uploadingThreadImage, setUploadingThreadImage] = useState(false);
+  const [uploadingPostImage, setUploadingPostImage] = useState(false);
+  const [editingPost, setEditingPost] = useState<ForumPost | null>(null);
+  const [editPostContent, setEditPostContent] = useState("");
+  const [editPostImageUrl, setEditPostImageUrl] = useState("");
+  const [editPostImageFile, setEditPostImageFile] = useState<File | null>(null);
+  const [uploadingEditImage, setUploadingEditImage] = useState(false);
+  
+  // Thread editing states
+  const [editingThread, setEditingThread] = useState<ForumThread | null>(null);
+  const [editThreadForm, setEditThreadForm] = useState({
+    title: "",
+    content: "",
+    category: "",
+    tags: "",
+    image_url: "",
+  });
+  const [editThreadImageFile, setEditThreadImageFile] = useState<File | null>(null);
+  const [uploadingEditThreadImage, setUploadingEditThreadImage] = useState(false);
+  const editPostImageInputRef = useRef<HTMLInputElement>(null);
+  const editThreadImageInputRef = useRef<HTMLInputElement>(null);
+  const threadImageInputRef = useRef<HTMLInputElement>(null);
+  const postImageInputRef = useRef<HTMLInputElement>(null);
 
   const categories = [
     "General Discussion",
     "Academic",
     "Student Life",
     "Technology",
-    "Sports",
     "Arts & Culture",
     "Career & Jobs",
     "Events",
@@ -148,9 +184,38 @@ const Forum = () => {
             return {
               ...thread,
               author_name: userData?.full_name || "Anonymous",
+              tags: Array.isArray(thread.tags) ? thread.tags : 
+                    typeof thread.tags === 'string' ? 
+                      (() => {
+                        try {
+                          // Try to parse as JSON first
+                          const parsed = JSON.parse(thread.tags);
+                          return Array.isArray(parsed) ? parsed : [];
+                        } catch {
+                          // If not JSON, split by comma
+                          return thread.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+                        }
+                      })() : 
+                      []
             };
           }
-          return { ...thread, author_name: "Anonymous" };
+          return { 
+            ...thread, 
+            author_name: "Anonymous",
+            tags: Array.isArray(thread.tags) ? thread.tags : 
+                  typeof thread.tags === 'string' ? 
+                    (() => {
+                      try {
+                        // Try to parse as JSON first
+                        const parsed = JSON.parse(thread.tags);
+                        return Array.isArray(parsed) ? parsed : [];
+                      } catch {
+                        // If not JSON, split by comma
+                        return thread.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+                      }
+                    })() : 
+                    []
+          };
         })
       );
 
@@ -228,6 +293,9 @@ const Forum = () => {
       const newThread = {
         title: threadForm.title.trim(),
         content: threadForm.content.trim(),
+        category: threadForm.category,
+        tags: tagsArray,
+        image_url: threadForm.image_url || null,
         created_by: String(user.id),
         updated_by: String(user.id),
         created_at: new Date().toISOString(),
@@ -251,7 +319,8 @@ const Forum = () => {
       });
 
       setShowNewThreadDialog(false);
-      setThreadForm({ title: "", content: "", category: "", tags: "" });
+      setThreadForm({ title: "", content: "", category: "", tags: "", image_url: "" });
+      setThreadImageFile(null);
       fetchThreads();
     } catch (err) {
       console.error("Error in handleCreateThread:", err);
@@ -274,6 +343,7 @@ const Forum = () => {
       const newPost = {
         thread_id: selectedThread.id,
         content: postForm.content.trim(),
+        image_url: postForm.image_url || null,
         created_by: String(user.id),
         updated_by: String(user.id),
         created_at: new Date().toISOString(),
@@ -306,11 +376,168 @@ const Forum = () => {
       });
 
       setShowNewPostDialog(false);
-      setPostForm({ content: "" });
+      setPostForm({ content: "", image_url: "" });
+      setPostImageFile(null);
       fetchThreadPosts(selectedThread.id);
       fetchThreads();
     } catch (err) {
       console.error("Error in handleCreatePost:", err);
+    }
+  };
+
+  const startEditPost = (post: ForumPost) => {
+    setEditingPost(post);
+    setEditPostContent(post.content);
+    setEditPostImageUrl(post.image_url || "");
+    setEditPostImageFile(null);
+  };
+
+  const cancelEditPost = () => {
+    setEditingPost(null);
+    setEditPostContent("");
+    setEditPostImageUrl("");
+    setEditPostImageFile(null);
+    if (editPostImageInputRef.current) {
+      editPostImageInputRef.current.value = "";
+    }
+  };
+
+  // Thread edit/delete functions
+  const handleDeleteThread = async (threadId: string) => {
+    if (!user?.id) return;
+
+    if (!confirm("Are you sure you want to delete this thread? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("forum_threads")
+        .delete()
+        .eq("id", threadId);
+
+      if (error) throw error;
+
+      setThreads((prev) => prev.filter((thread) => thread.id !== threadId));
+      
+      // If the deleted thread was selected, clear selection
+      if (selectedThread?.id === threadId) {
+        setSelectedThread(null);
+        setThreadPosts([]);
+      }
+
+      toast({
+        title: "Success",
+        description: "Thread deleted successfully.",
+      });
+    } catch (err) {
+      console.error("Error deleting thread:", err);
+      toast({
+        title: "Error",
+        description: "Failed to delete thread. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditThread = async () => {
+    if (!editingThread || !editThreadForm.title.trim() || !editThreadForm.content.trim() || !user) return;
+
+    try {
+      const { error } = await supabase
+        .from("forum_threads")
+        .update({
+          title: editThreadForm.title.trim(),
+          content: editThreadForm.content.trim(),
+          category: editThreadForm.category,
+          tags: editThreadForm.tags,
+          image_url: editThreadForm.image_url || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingThread.id);
+
+      if (error) throw error;
+
+      setThreads((prev) =>
+        prev.map((thread) =>
+          thread.id === editingThread.id
+            ? {
+                ...thread,
+                title: editThreadForm.title.trim(),
+                content: editThreadForm.content.trim(),
+                category: editThreadForm.category,
+                tags: editThreadForm.tags,
+                image_url: editThreadForm.image_url || null,
+                updated_at: new Date().toISOString(),
+              }
+            : thread
+        )
+      );
+
+      // Update selected thread if it's the one being edited
+      if (selectedThread?.id === editingThread.id) {
+        setSelectedThread({
+          ...selectedThread,
+          title: editThreadForm.title.trim(),
+          content: editThreadForm.content.trim(),
+          category: editThreadForm.category,
+          tags: editThreadForm.tags,
+          image_url: editThreadForm.image_url || null,
+          updated_at: new Date().toISOString(),
+        });
+      }
+
+      setEditingThread(null);
+      setEditThreadForm({
+        title: "",
+        content: "",
+        category: "",
+        tags: "",
+        image_url: "",
+      });
+      setEditThreadImageFile(null);
+      if (editThreadImageInputRef.current) {
+        editThreadImageInputRef.current.value = "";
+      }
+
+      toast({
+        title: "Success",
+        description: "Thread updated successfully.",
+      });
+    } catch (err) {
+      console.error("Error updating thread:", err);
+      toast({
+        title: "Error",
+        description: "Failed to update thread. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const startEditThread = (thread: ForumThread) => {
+    setEditingThread(thread);
+    setEditThreadForm({
+      title: thread.title,
+      content: thread.content,
+      category: thread.category || "",
+      tags: Array.isArray(thread.tags) ? thread.tags.join(", ") : thread.tags || "",
+      image_url: thread.image_url || "",
+    });
+    setEditThreadImageFile(null);
+  };
+
+  const cancelEditThread = () => {
+    setEditingThread(null);
+    setEditThreadForm({
+      title: "",
+      content: "",
+      category: "",
+      tags: "",
+      image_url: "",
+    });
+    setEditThreadImageFile(null);
+    if (editThreadImageInputRef.current) {
+      editThreadImageInputRef.current.value = "";
     }
   };
 
@@ -334,15 +561,310 @@ const Forum = () => {
     }
   };
 
+  // Image upload functions
+  const handleThreadImageUpload = async (file: File) => {
+    try {
+      setUploadingThreadImage(true);
+      
+      // Upload to Cloudinary
+      const imageUrl = await uploadImageToCloudinary(file, 'forum-threads');
+      
+      if (!imageUrl) {
+        throw new Error('Upload failed');
+      }
+
+      const optimizedUrl = getOptimizedImageUrl(imageUrl, 800, 600);
+      setThreadForm(prev => ({ ...prev, image_url: optimizedUrl }));
+      setThreadImageFile(file);
+      
+      toast({
+        title: "Success!",
+        description: "Image uploaded successfully!",
+      });
+    } catch (err) {
+      console.error('Upload error:', err);
+      toast({
+        title: "Error",
+        description: "Failed to upload image",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingThreadImage(false);
+    }
+  };
+
+  const handlePostImageUpload = async (file: File) => {
+    try {
+      setUploadingPostImage(true);
+      
+      // Upload to Cloudinary
+      const imageUrl = await uploadImageToCloudinary(file, 'forum-posts');
+      
+      if (!imageUrl) {
+        throw new Error('Upload failed');
+      }
+
+      const optimizedUrl = getOptimizedImageUrl(imageUrl, 800, 600);
+      setPostForm(prev => ({ ...prev, image_url: optimizedUrl }));
+      setPostImageFile(file);
+      
+      toast({
+        title: "Success!",
+        description: "Image uploaded successfully!",
+      });
+    } catch (err) {
+      console.error('Upload error:', err);
+      toast({
+        title: "Error",
+        description: "Failed to upload image",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingPostImage(false);
+    }
+  };
+
+  const removeThreadImage = () => {
+    setThreadForm(prev => ({ ...prev, image_url: "" }));
+    setThreadImageFile(null);
+    if (threadImageInputRef.current) {
+      threadImageInputRef.current.value = '';
+    }
+  };
+
+  const removePostImage = () => {
+    setPostForm(prev => ({ ...prev, image_url: "" }));
+    setPostImageFile(null);
+    if (postImageInputRef.current) {
+      postImageInputRef.current.value = '';
+    }
+  };
+
+  const handleEditPostImageUpload = async (file: File) => {
+    try {
+      setUploadingEditImage(true);
+      
+      // Upload to Cloudinary
+      const imageUrl = await uploadImageToCloudinary(file, 'forum-posts');
+      
+      if (!imageUrl) {
+        throw new Error('Upload failed');
+      }
+
+      const optimizedUrl = getOptimizedImageUrl(imageUrl, 800, 600);
+      setEditPostImageUrl(optimizedUrl);
+      setEditPostImageFile(file);
+      
+      toast({
+        title: "Success!",
+        description: "Image uploaded successfully!",
+      });
+    } catch (err) {
+      console.error('Upload error:', err);
+      toast({
+        title: "Error",
+        description: "Failed to upload image",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingEditImage(false);
+    }
+  };
+
+  const removeEditPostImage = () => {
+    setEditPostImageUrl("");
+    setEditPostImageFile(null);
+    if (editPostImageInputRef.current) {
+      editPostImageInputRef.current.value = "";
+    }
+  };
+
+  const handleEditThreadImageUpload = async (file: File) => {
+    try {
+      setUploadingEditThreadImage(true);
+      
+      // Upload to Cloudinary
+      const imageUrl = await uploadImageToCloudinary(file, 'forum-threads');
+      
+      if (!imageUrl) {
+        throw new Error('Upload failed');
+      }
+
+      const optimizedUrl = getOptimizedImageUrl(imageUrl, 800, 600);
+      setEditThreadForm(prev => ({ ...prev, image_url: optimizedUrl }));
+      setEditThreadImageFile(file);
+      
+      toast({
+        title: "Success!",
+        description: "Image uploaded successfully!",
+      });
+    } catch (err) {
+      console.error('Upload error:', err);
+      toast({
+        title: "Error",
+        description: "Failed to upload image",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingEditThreadImage(false);
+    }
+  };
+
+  const removeEditThreadImage = () => {
+    setEditThreadForm(prev => ({ ...prev, image_url: "" }));
+    setEditThreadImageFile(null);
+    if (editThreadImageInputRef.current) {
+      editThreadImageInputRef.current.value = "";
+    }
+  };
+
+  const handleEditPost = async () => {
+    if (!editingPost || !user?.id) return;
+
+    if (!editPostContent.trim()) {
+      toast({
+        title: "Error",
+        description: "Post content is required",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("forum_posts")
+        .update({
+          content: editPostContent.trim(),
+          image_url: editPostImageUrl || null,
+          updated_by: String(user.id),
+          is_edited: true,
+          edited_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", editingPost.id);
+
+      if (error) {
+        console.error("Error updating post:", error);
+        toast({
+          title: "Error",
+          description: "Failed to update post",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Success",
+        description: "Post updated successfully",
+      });
+
+      setEditingPost(null);
+      setEditPostContent("");
+      setEditPostImageUrl("");
+      setEditPostImageFile(null);
+      if (editPostImageInputRef.current) {
+        editPostImageInputRef.current.value = '';
+      }
+
+      // Refresh the posts
+      if (selectedThread) {
+        fetchThreadPosts(selectedThread.id);
+      }
+    } catch (err) {
+      console.error("Error in handleEditPost:", err);
+      toast({
+        title: "Error",
+        description: "Failed to update post",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeletePost = async (postId: string) => {
+    if (!user?.id) return;
+
+    if (!confirm("Are you sure you want to delete this post? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("forum_posts")
+        .delete()
+        .eq("id", postId);
+
+      if (error) {
+        console.error("Error deleting post:", error);
+        toast({
+          title: "Error",
+          description: "Failed to delete post",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Success",
+        description: "Post deleted successfully",
+      });
+
+      // Update reply count
+      if (selectedThread) {
+        await supabase
+          .from("forum_threads")
+          .update({
+            reply_count: Math.max((selectedThread.reply_count || 1) - 1, 0),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", selectedThread.id);
+
+        // Refresh the posts and threads
+        fetchThreadPosts(selectedThread.id);
+        fetchThreads();
+      }
+    } catch (err) {
+      console.error("Error in handleDeletePost:", err);
+      toast({
+        title: "Error",
+        description: "Failed to delete post",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const startEditingPost = (post: ForumPost) => {
+    setEditingPost(post);
+    setEditPostContent(post.content);
+    setEditPostImageUrl(post.image_url || "");
+    setEditPostImageFile(null);
+  };
+
+  const cancelEditingPost = () => {
+    setEditingPost(null);
+    setEditPostContent("");
+    setEditPostImageUrl("");
+    setEditPostImageFile(null);
+    if (editPostImageInputRef.current) {
+      editPostImageInputRef.current.value = '';
+    }
+  };
+
   const getFilteredThreads = () => {
     let filtered = threads;
+
+    // Filter by "My Threads" if active tab is "my"
+    if (activeTab === "my" && user) {
+      filtered = filtered.filter(
+        (thread) => thread.created_by === user.id
+      );
+    }
 
     if (searchTerm) {
       filtered = filtered.filter(
         (thread) =>
           thread.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
           thread.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (thread.tags &&
+          (thread.tags && Array.isArray(thread.tags) &&
             thread.tags.some((tag) =>
               tag.toLowerCase().includes(searchTerm.toLowerCase())
             ))
@@ -425,6 +947,30 @@ const Forum = () => {
                   New Thread
                 </Button>
               </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b mb-6">
+              <button
+                className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === "all"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setActiveTab("all")}
+              >
+                All Threads
+              </button>
+              <button
+                className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                  activeTab === "my"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+                onClick={() => setActiveTab("my")}
+              >
+                My Threads
+              </button>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
@@ -528,6 +1074,15 @@ const Forum = () => {
                           <p className="text-muted-foreground line-clamp-2 mb-3">
                             {thread.content}
                           </p>
+                          {thread.image_url && (
+                            <div className="mb-3">
+                              <img
+                                src={thread.image_url}
+                                alt="Thread image"
+                                className="w-20 h-20 object-cover rounded-md"
+                              />
+                            </div>
+                          )}
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <User className="h-3 w-3" />
@@ -551,7 +1106,7 @@ const Forum = () => {
                           {thread.category && (
                             <Badge variant="secondary">{thread.category}</Badge>
                           )}
-                          {thread.tags && thread.tags.length > 0 && (
+                          {thread.tags && Array.isArray(thread.tags) && thread.tags.length > 0 && (
                             <div className="flex gap-1">
                               {thread.tags.slice(0, 2).map((tag, index) => (
                                 <Badge
@@ -567,6 +1122,33 @@ const Forum = () => {
                                   +{thread.tags.length - 2}
                                 </Badge>
                               )}
+                            </div>
+                          )}
+                          {/* Edit/Delete buttons for My Threads */}
+                          {activeTab === "my" && user?.id === thread.created_by && (
+                            <div className="flex items-center gap-1 mt-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  startEditThread(thread);
+                                }}
+                                className="h-6 w-6 p-0"
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteThread(thread.id);
+                                }}
+                                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
                             </div>
                           )}
                         </div>
@@ -601,7 +1183,7 @@ const Forum = () => {
                           {selectedThread.category}
                         </Badge>
                       )}
-                      {selectedThread.tags &&
+                      {selectedThread.tags && Array.isArray(selectedThread.tags) &&
                         selectedThread.tags.map((tag, index) => (
                           <Badge
                             key={index}
@@ -614,9 +1196,18 @@ const Forum = () => {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm leading-relaxed">
+                    <p className="text-sm leading-relaxed mb-4">
                       {selectedThread.content}
                     </p>
+                    {selectedThread.image_url && (
+                      <div className="mt-4">
+                        <img
+                          src={selectedThread.image_url}
+                          alt="Thread image"
+                          className="w-full max-w-md rounded-lg shadow-md"
+                        />
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -680,42 +1271,73 @@ const Forum = () => {
                       </CardContent>
                     </Card>
                   ) : (
-                    <div className="space-y-3">
-                      {threadPosts.map((post) => (
-                        <Card key={post.id}>
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarFallback>
-                                  {post.author_name?.charAt(0) || "U"}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <span className="text-sm font-medium">
-                                    {post.author_name}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {formatDate(post.created_at)}
-                                  </span>
-                                  {post.is_edited && (
-                                    <Badge
-                                      variant="outline"
-                                      className="text-xs"
-                                    >
-                                      edited
-                                    </Badge>
-                                  )}
-                                </div>
-                                <p className="text-sm leading-relaxed mb-2">
-                                  {post.content}
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+                                         <div className="space-y-3">
+                       {threadPosts.map((post) => (
+                         <Card key={post.id}>
+                           <CardContent className="p-4">
+                             <div className="flex items-start gap-3">
+                               <Avatar className="h-8 w-8">
+                                 <AvatarFallback>
+                                   {post.author_name?.charAt(0) || "U"}
+                                 </AvatarFallback>
+                               </Avatar>
+                               <div className="flex-1">
+                                 <div className="flex items-center justify-between mb-2">
+                                   <div className="flex items-center gap-2">
+                                     <span className="text-sm font-medium">
+                                       {post.author_name}
+                                     </span>
+                                     <span className="text-xs text-muted-foreground">
+                                       {formatDate(post.created_at)}
+                                     </span>
+                                     {post.is_edited && (
+                                       <Badge
+                                         variant="outline"
+                                         className="text-xs"
+                                       >
+                                         edited
+                                       </Badge>
+                                     )}
+                                   </div>
+                                   {user?.id === post.created_by && (
+                                     <div className="flex items-center gap-1">
+                                       <Button
+                                         variant="ghost"
+                                         size="sm"
+                                         onClick={() => startEditPost(post)}
+                                         className="h-6 w-6 p-0"
+                                       >
+                                         <Edit className="h-3 w-3" />
+                                       </Button>
+                                       <Button
+                                         variant="ghost"
+                                         size="sm"
+                                         onClick={() => handleDeletePost(post.id)}
+                                         className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                       >
+                                         <Trash2 className="h-3 w-3" />
+                                       </Button>
+                                     </div>
+                                   )}
+                                 </div>
+                                 <p className="text-sm leading-relaxed mb-2">
+                                   {post.content}
+                                 </p>
+                                 {post.image_url && (
+                                   <div className="mt-3">
+                                     <img
+                                       src={post.image_url}
+                                       alt="Post image"
+                                       className="w-full max-w-sm rounded-lg shadow-sm"
+                                     />
+                                   </div>
+                                 )}
+                               </div>
+                             </div>
+                           </CardContent>
+                         </Card>
+                       ))}
+                     </div>
                   )}
                 </div>
               </div>
@@ -801,6 +1423,68 @@ const Forum = () => {
                   rows={6}
                 />
               </div>
+              
+              {/* Image Upload Section */}
+              <div>
+                <label className="text-sm font-medium">Image (Optional)</label>
+                <div className="space-y-3">
+                  {threadForm.image_url ? (
+                    <div className="relative">
+                      <img
+                        src={threadForm.image_url}
+                        alt="Preview"
+                        className="w-full max-w-md rounded-lg shadow-sm"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={removeThreadImage}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+                      <input
+                        ref={threadImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleThreadImageUpload(file);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => threadImageInputRef.current?.click()}
+                        disabled={uploadingThreadImage}
+                        className="w-full"
+                      >
+                        {uploadingThreadImage ? (
+                          <>
+                            <Loader className="h-4 w-4 mr-2 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <ImageIcon className="h-4 w-4 mr-2" />
+                            Upload Image
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Max 5MB • JPG, PNG, GIF
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             <DialogFooter>
               <Button
@@ -835,6 +1519,68 @@ const Forum = () => {
                   rows={6}
                 />
               </div>
+              
+              {/* Image Upload Section */}
+              <div>
+                <label className="text-sm font-medium">Image (Optional)</label>
+                <div className="space-y-3">
+                  {postForm.image_url ? (
+                    <div className="relative">
+                      <img
+                        src={postForm.image_url}
+                        alt="Preview"
+                        className="w-full max-w-md rounded-lg shadow-sm"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={removePostImage}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+                      <input
+                        ref={postImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handlePostImageUpload(file);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => postImageInputRef.current?.click()}
+                        disabled={uploadingPostImage}
+                        className="w-full"
+                      >
+                        {uploadingPostImage ? (
+                          <>
+                            <Loader className="h-4 w-4 mr-2 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <ImageIcon className="h-4 w-4 mr-2" />
+                            Upload Image
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Max 5MB • JPG, PNG, GIF
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
             <DialogFooter>
               <Button
@@ -844,6 +1590,229 @@ const Forum = () => {
                 Cancel
               </Button>
               <Button onClick={handleCreatePost}>Post Reply</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Post Dialog */}
+        <Dialog open={!!editingPost} onOpenChange={() => cancelEditPost()}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Post</DialogTitle>
+              <DialogDescription>
+                Make changes to your post below.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Content</label>
+                <Textarea
+                  value={editPostContent}
+                  onChange={(e) => setEditPostContent(e.target.value)}
+                  placeholder="What's on your mind?"
+                  className="min-h-[100px]"
+                />
+              </div>
+
+              {/* Image Upload Section */}
+              <div>
+                <label className="text-sm font-medium">Image (Optional)</label>
+                {editPostImageUrl ? (
+                  <div className="relative mt-2">
+                    <img
+                      src={editPostImageUrl}
+                      alt="Post preview"
+                      className="w-full max-w-md h-48 object-cover rounded-lg"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={removeEditPostImage}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="mt-2">
+                    <input
+                      ref={editPostImageInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleEditPostImageUpload(file);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => editPostImageInputRef.current?.click()}
+                      disabled={uploadingEditImage}
+                      className="w-full"
+                    >
+                      {uploadingEditImage ? (
+                        <>
+                          <Loader className="h-4 w-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Upload Image
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={cancelEditPost}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleEditPost}>Update Post</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Thread Dialog */}
+        <Dialog open={!!editingThread} onOpenChange={() => cancelEditThread()}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Thread</DialogTitle>
+              <DialogDescription>
+                Make changes to your thread below.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Title</label>
+                <Input
+                  placeholder="Enter thread title..."
+                  value={editThreadForm.title}
+                  onChange={(e) =>
+                    setEditThreadForm({ ...editThreadForm, title: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Category</label>
+                <Select
+                  value={editThreadForm.category}
+                  onValueChange={(value) =>
+                    setEditThreadForm({ ...editThreadForm, category: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Tags (comma-separated)</label>
+                <Input
+                  placeholder="e.g., technology, programming, help"
+                  value={editThreadForm.tags}
+                  onChange={(e) =>
+                    setEditThreadForm({ ...editThreadForm, tags: e.target.value })
+                  }
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium">Content</label>
+                <Textarea
+                  placeholder="Write your thread content..."
+                  value={editThreadForm.content}
+                  onChange={(e) =>
+                    setEditThreadForm({ ...editThreadForm, content: e.target.value })
+                  }
+                  className="min-h-[120px]"
+                />
+              </div>
+
+              {/* Image Upload Section */}
+              <div>
+                <label className="text-sm font-medium">Image (Optional)</label>
+                {editThreadForm.image_url ? (
+                  <div className="relative mt-2">
+                    <img
+                      src={editThreadForm.image_url}
+                      alt="Thread preview"
+                      className="w-full max-w-md h-48 object-cover rounded-lg"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={removeEditThreadImage}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="mt-2">
+                    <input
+                      ref={editThreadImageInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleEditThreadImageUpload(file);
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => editThreadImageInputRef.current?.click()}
+                      disabled={uploadingEditThreadImage}
+                      className="w-full"
+                    >
+                      {uploadingEditThreadImage ? (
+                        <>
+                          <Loader className="h-4 w-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Upload Image
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={cancelEditThread}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleEditThread}>Update Thread</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

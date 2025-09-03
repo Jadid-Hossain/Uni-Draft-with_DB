@@ -18,10 +18,12 @@ import Chat from "./pages/Chat";
 import Chat2 from "./pages/Chat2";
 import JoinClub from "./pages/JoinClub";
 import ClubDetails from "./pages/ClubDetails";
+import ClubDashboard from "./pages/ClubDashboard";
+import EventsManagement from "./pages/EventsManagement";
 import EventRegistration from "./pages/EventRegistration";
 import Resources from "./pages/Resources";
 import LearnMore from "./pages/LearnMore";
-import ClubDashboard from "./pages/ClubDashboard";
+
 import SocialFeed from "./pages/SocialFeed";
 import Careers from "./pages/Careers";
 import Assistant from "./pages/Assistant";
@@ -146,6 +148,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ClubDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/events-management"
+              element={
+                <ProtectedRoute>
+                  <EventsManagement />
                 </ProtectedRoute>
               }
             />

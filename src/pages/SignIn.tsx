@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import Layout from "@/components/Layout";
 
 const SignIn = () => {
   const [email, setEmail] = useState("");
@@ -54,7 +55,8 @@ const SignIn = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-accent/10 p-4">
+    <Layout>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-accent/10 p-4">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
@@ -207,7 +209,8 @@ const SignIn = () => {
           </p>
         </div>
       </div>
-    </div>
+      </div>
+    </Layout>
   );
 };
 

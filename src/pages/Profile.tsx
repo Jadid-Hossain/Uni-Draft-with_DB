@@ -47,10 +47,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useUserEvents } from "@/hooks/useUserEvents";
 import { useUserClubApplications } from "@/hooks/useUserClubApplications";
 import { supabase } from "@/lib/supabase";
+import { uploadImageToCloudinary, getOptimizedImageUrl } from "@/lib/cloudinary";
 import UniversityCalendar from "@/components/UniversityCalendar";
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { toast } = useToast();
   const { events: userEvents, loading: eventsLoading } = useUserEvents();
   const [userData, setUserData] = useState<any>(null);
@@ -80,10 +81,12 @@ const Profile = () => {
     year: "",
     gpa: "",
     student_id: "",
+    employee_id: "",
     date_of_birth: "",
     bio: "",
     interests: "",
     achievements: "",
+    courses_taught: "", // For faculty
   });
 
   // Fetch user data from users table
@@ -126,21 +129,23 @@ const Profile = () => {
       }
 
       setUserData(data);
-      setFormData({
-        full_name: data.full_name || "",
-        username: data.username || "",
-        email: data.email || "",
-        phone: data.phone || "",
-        address: data.address || "",
-        department: data.department || "",
-        year: data.year || "",
-        gpa: data.gpa || "",
-        student_id: data.student_id || "",
-        date_of_birth: data.date_of_birth || "",
-        bio: data.bio || "",
-        interests: data.interests || "",
-        achievements: data.achievements || "",
-      });
+              setFormData({
+          full_name: data.full_name || "",
+          username: data.username || "",
+          email: data.email || "",
+          phone: data.phone || "",
+          address: data.address || "",
+          department: data.department || "",
+          year: data.year || "",
+          gpa: data.gpa || "",
+          student_id: data.student_id || "",
+          employee_id: data.employee_id || "",
+          date_of_birth: data.date_of_birth || "",
+          bio: data.bio || "",
+          interests: data.interests || "",
+          achievements: data.achievements || "",
+          courses_taught: data.courses_taught || "",
+        });
       setProfileImage(data.avatar_url || null);
     } catch (err) {
       console.error("Error in fetchUserData:", err);
@@ -199,55 +204,41 @@ const Profile = () => {
     }
   };
 
-  // Upload profile image
+  // Upload profile image to Cloudinary
   const uploadProfileImage = async (file: File) => {
     if (!user?.id) return null;
 
     try {
       setUploading(true);
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, file);
-
-      if (uploadError) {
-        throw uploadError;
+      
+      // Upload to Cloudinary
+      const imageUrl = await uploadImageToCloudinary(file, 'profile-images');
+      
+      if (!imageUrl) {
+        throw new Error('Upload failed');
       }
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("avatars").getPublicUrl(filePath);
-
-      return publicUrl;
+      return imageUrl;
     } catch (err) {
-      setError("Failed to upload image");
+      console.error('Upload error:', err);
+      setError("Failed to upload image to Cloudinary");
       return null;
     } finally {
       setUploading(false);
     }
   };
 
-  // Delete profile image
+  // Delete profile image from Cloudinary
   const deleteProfileImage = async () => {
     if (!user?.id || !profileImage) return false;
 
     try {
-      // Extract file path from URL
-      const urlParts = profileImage.split("/");
-      const fileName = urlParts[urlParts.length - 1];
-      const filePath = `avatars/${fileName}`;
-
-      const { error } = await supabase.storage
-        .from("avatars")
-        .remove([filePath]);
-
-      if (error) {
-        throw error;
-      }
-
+      // For Cloudinary, we can't delete from client-side due to security
+      // The image will remain in Cloudinary but won't be referenced
+      // In a production app, you'd want to implement server-side deletion
+      console.log('Image deletion from Cloudinary requires server-side implementation');
+      
+      // For now, we'll just return true since we can't delete from client
       return true;
     } catch (err) {
       setError("Failed to delete image");
@@ -255,35 +246,14 @@ const Profile = () => {
     }
   };
 
-  // Hide profile page for admin users
-  if (user?.role === "admin") {
-    return (
-      <Layout>
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted/20 pt-20">
-          <Card className="w-full max-w-md">
-            <CardHeader className="text-center">
-              <CardTitle className="flex items-center justify-center gap-2">
-                <Users className="h-6 w-6" />
-                Administrator Account
-              </CardTitle>
-              <CardDescription>
-                Profile management is not available for administrator accounts.
-                Use the admin dashboard to manage users and system settings.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-center">
-              <Button
-                onClick={() => (window.location.href = "/admin")}
-                className="w-full"
-              >
-                Go to Admin Dashboard
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </Layout>
-    );
-  }
+  // Helper function to check if user is admin
+  const isAdmin = user?.role === "admin";
+  
+  // Helper function to check if user is faculty
+  const isFaculty = user?.role === "faculty";
+  
+  // Helper function to check if user is student
+  const isStudent = user?.role === "student";
 
   // Load user data on component mount
   useEffect(() => {
@@ -491,6 +461,26 @@ const Profile = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Check file size (5MB limit for Cloudinary)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "Error",
+        description: "File size must be less than 5MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Error",
+        description: "Please select a valid image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const imageUrl = await uploadProfileImage(file);
       if (imageUrl) {
@@ -498,9 +488,13 @@ const Profile = () => {
         const success = await updateUserData({ avatar_url: imageUrl });
         if (success) {
           setProfileImage(imageUrl);
+           // Refresh the global user context to update the header avatar
+           await refreshUser();
+           // Dispatch custom event to refresh header avatar
+           window.dispatchEvent(new CustomEvent('avatar-refreshed'));
           toast({
             title: "Success!",
-            description: "Profile picture updated successfully.",
+             description: "Profile picture uploaded to Cloudinary successfully!",
           });
         } else {
           throw new Error("Failed to save avatar to database");
@@ -510,9 +504,14 @@ const Profile = () => {
       toast({
         title: "Error",
         description:
-          error instanceof Error ? error.message : "Failed to upload image.",
+          error instanceof Error ? error.message : "Failed to upload image to Cloudinary.",
         variant: "destructive",
       });
+    }
+    
+    // Clear the file input
+    if (event.target) {
+      event.target.value = '';
     }
   };
 
@@ -523,6 +522,10 @@ const Profile = () => {
         // Update the database to remove avatar URL
         await updateUserData({ avatar_url: "" });
         setProfileImage(null);
+         // Refresh the global user context to update the header avatar
+         await refreshUser();
+         // Dispatch custom event to refresh header avatar
+         window.dispatchEvent(new CustomEvent('avatar-refreshed'));
         toast({
           title: "Success!",
           description: "Profile picture removed successfully.",
@@ -591,7 +594,7 @@ const Profile = () => {
                 <div className="relative">
                   <Avatar className="h-32 w-32 border-4 border-primary/20">
                     <AvatarImage
-                      src={profileImage || undefined}
+                      src={profileImage ? getOptimizedImageUrl(profileImage, 256, 256) : undefined}
                       alt={formData.full_name}
                     />
                     <AvatarFallback className="bg-gradient-primary text-primary-foreground text-3xl font-bold">
@@ -642,7 +645,7 @@ const Profile = () => {
 
                   {/* Upload notice */}
                   <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs text-muted-foreground text-center whitespace-nowrap">
-                    Max 100KB
+                    Max 5MB • Cloudinary
                   </div>
                 </div>
 
@@ -653,15 +656,22 @@ const Profile = () => {
                         {formData.full_name}
                       </h1>
                       <p className="text-muted-foreground mb-2">
-                        {formData.department} • {formData.year}
+                        {isStudent 
+                          ? `${formData.department} • ${formData.year}`
+                          : isFaculty 
+                            ? `${formData.department} • Faculty`
+                            : 'Administrator'
+                        }
                       </p>
                       <div className="flex flex-wrap justify-center md:justify-start gap-2 mb-4">
-                        <Badge
-                          variant="secondary"
-                          className="bg-primary/10 text-primary"
-                        >
-                          GPA: {formData.gpa}
-                        </Badge>
+                        {isStudent && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-primary/10 text-primary"
+                          >
+                            GPA: {formData.gpa}
+                          </Badge>
+                        )}
                         <Badge
                           variant="secondary"
                           className="bg-success/10 text-success"
@@ -671,6 +681,14 @@ const Profile = () => {
                               user.role.slice(1)
                             : "Student"}
                         </Badge>
+                        {!isStudent && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-blue-100 text-blue-800"
+                          >
+                            {isAdmin ? 'Employee ID' : 'Faculty ID'}: {user?.employee_id || 'N/A'}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -832,10 +850,12 @@ const Profile = () => {
 
           {/* Profile Tabs */}
           <Tabs defaultValue="overview" className="space-y-6">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className={`grid w-full ${isStudent ? 'grid-cols-5' : 'grid-cols-4'}`}>
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="academic">Academic</TabsTrigger>
-              <TabsTrigger value="activities">Activities</TabsTrigger>
+              <TabsTrigger value="academic">
+                {isStudent ? 'Academic' : 'Professional'}
+              </TabsTrigger>
+              {isStudent && <TabsTrigger value="activities">Activities</TabsTrigger>}
               <TabsTrigger value="calendar">Calendar</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
@@ -948,110 +968,217 @@ const Profile = () => {
               </div>
             </TabsContent>
 
-            {/* Academic Tab */}
+            {/* Academic/Professional Tab */}
             <TabsContent value="academic" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Academic Information</CardTitle>
+                  <CardTitle>
+                    {isStudent ? 'Academic Information' : 'Professional Information'}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label htmlFor="department">Department</Label>
-                      {isEditing ? (
-                        <Select
-                          value={formData.department}
-                          onValueChange={(value) =>
-                            handleInputChange("department", value)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Computer Science">
-                              Computer Science
-                            </SelectItem>
-                            <SelectItem value="Electrical Engineering">
-                              Electrical Engineering
-                            </SelectItem>
-                            <SelectItem value="Business Administration">
-                              Business Administration
-                            </SelectItem>
-                            <SelectItem value="Economics">Economics</SelectItem>
-                            <SelectItem value="Mathematics">
-                              Mathematics
-                            </SelectItem>
-                            <SelectItem value="Physics">Physics</SelectItem>
-                            <SelectItem value="Chemistry">Chemistry</SelectItem>
-                            <SelectItem value="English">English</SelectItem>
-                            <SelectItem value="Architecture">
-                              Architecture
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Input value={formData.department} readOnly />
-                      )}
-                    </div>
-                    <div>
-                      <Label htmlFor="year">Academic Year</Label>
-                      {isEditing ? (
-                        <Select
-                          value={formData.year}
-                          onValueChange={(value) =>
-                            handleInputChange("year", value)
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="Freshman">1st Year</SelectItem>
-                            <SelectItem value="Sophomore">2nd Year</SelectItem>
-                            <SelectItem value="Junior">3rd Year</SelectItem>
-                            <SelectItem value="Senior">4th Year</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <Input value={formData.year} readOnly />
-                      )}
-                    </div>
-                    <div>
-                      <Label htmlFor="gpa">Current CGPA</Label>
-                      {isEditing ? (
-                        <Input
-                          value={formData.gpa}
-                          onChange={(e) =>
-                            handleInputChange("gpa", e.target.value)
-                          }
-                          placeholder="3.50"
-                        />
-                      ) : (
-                        <Input value={formData.gpa} readOnly />
-                      )}
-                    </div>
-                  </div>
+                  {isStudent ? (
+                    // Student Academic Information
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <Label htmlFor="department">Department</Label>
+                          {isEditing ? (
+                            <Select
+                              value={formData.department}
+                              onValueChange={(value) =>
+                                handleInputChange("department", value)
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Computer Science">
+                                  Computer Science
+                                </SelectItem>
+                                <SelectItem value="Electrical Engineering">
+                                  Electrical Engineering
+                                </SelectItem>
+                                <SelectItem value="Business Administration">
+                                  Business Administration
+                                </SelectItem>
+                                <SelectItem value="Economics">Economics</SelectItem>
+                                <SelectItem value="Mathematics">
+                                  Mathematics
+                                </SelectItem>
+                                <SelectItem value="Physics">Physics</SelectItem>
+                                <SelectItem value="Chemistry">Chemistry</SelectItem>
+                                <SelectItem value="English">English</SelectItem>
+                                <SelectItem value="Architecture">
+                                  Architecture
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input value={formData.department} readOnly />
+                          )}
+                        </div>
+                        <div>
+                          <Label htmlFor="year">Academic Year</Label>
+                          {isEditing ? (
+                            <Select
+                              value={formData.year}
+                              onValueChange={(value) =>
+                                handleInputChange("year", value)
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Freshman">1st Year</SelectItem>
+                                <SelectItem value="Sophomore">2nd Year</SelectItem>
+                                <SelectItem value="Junior">3rd Year</SelectItem>
+                                <SelectItem value="Senior">4th Year</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <Input value={formData.year} readOnly />
+                          )}
+                        </div>
+                        <div>
+                          <Label htmlFor="gpa">Current CGPA</Label>
+                          {isEditing ? (
+                            <Input
+                              value={formData.gpa}
+                              onChange={(e) =>
+                                handleInputChange("gpa", e.target.value)
+                              }
+                              placeholder="3.50"
+                            />
+                          ) : (
+                            <Input value={formData.gpa} readOnly />
+                          )}
+                        </div>
+                      </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-                    <div>
-                      <Label>Student ID</Label>
-                      <Input
-                        value={user?.student_id || "Not Available"}
-                        readOnly
-                      />
-                    </div>
-                    <div>
-                      <Label>Email</Label>
-                      <Input value={formData.email} readOnly />
-                    </div>
-                  </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                        <div>
+                          <Label>Student ID</Label>
+                          <Input
+                            value={user?.student_id || "Not Available"}
+                            readOnly
+                          />
+                        </div>
+                        <div>
+                          <Label>Email</Label>
+                          <Input value={formData.email} readOnly />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    // Admin/Faculty Professional Information
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Employee ID</Label>
+                          <Input
+                            value={user?.employee_id || "Not Available"}
+                            readOnly
+                          />
+                        </div>
+                        <div>
+                          <Label>Email</Label>
+                          <Input value={formData.email} readOnly />
+                        </div>
+                      </div>
+
+                      {isFaculty && (
+                        <>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <Label htmlFor="department">Department</Label>
+                              {isEditing ? (
+                                <Select
+                                  value={formData.department}
+                                  onValueChange={(value) =>
+                                    handleInputChange("department", value)
+                                  }
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Computer Science">
+                                      Computer Science
+                                    </SelectItem>
+                                    <SelectItem value="Electrical Engineering">
+                                      Electrical Engineering
+                                    </SelectItem>
+                                    <SelectItem value="Business Administration">
+                                      Business Administration
+                                    </SelectItem>
+                                    <SelectItem value="Economics">Economics</SelectItem>
+                                    <SelectItem value="Mathematics">
+                                      Mathematics
+                                    </SelectItem>
+                                    <SelectItem value="Physics">Physics</SelectItem>
+                                    <SelectItem value="Chemistry">Chemistry</SelectItem>
+                                    <SelectItem value="English">English</SelectItem>
+                                    <SelectItem value="Architecture">
+                                      Architecture
+                                    </SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Input value={formData.department} readOnly />
+                              )}
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label htmlFor="courses_taught">Courses Taught</Label>
+                            {isEditing ? (
+                              <Textarea
+                                value={formData.courses_taught}
+                                onChange={(e) =>
+                                  handleInputChange("courses_taught", e.target.value)
+                                }
+                                placeholder="Enter courses you teach (one per line)..."
+                                className="min-h-[100px]"
+                              />
+                            ) : (
+                              <div className="p-3 border rounded-md bg-muted/50">
+                                {formData.courses_taught ? (
+                                  <ul className="space-y-1">
+                                    {formData.courses_taught
+                                      .split("\n")
+                                      .filter((line) => line.trim())
+                                      .map((course, index) => (
+                                        <li
+                                          key={index}
+                                          className="flex items-center text-sm"
+                                        >
+                                          <div className="h-2 w-2 rounded-full bg-primary mr-3" />
+                                          {course.trim()}
+                                        </li>
+                                      ))}
+                                  </ul>
+                                ) : (
+                                  <p className="text-muted-foreground">
+                                    No courses added yet.
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
 
-            {/* Activities Tab */}
-            <TabsContent value="activities" className="space-y-6">
+            {/* Activities Tab - Only for Students */}
+            {isStudent && (
+              <TabsContent value="activities" className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Recent Events */}
                 <Card>
@@ -1214,7 +1341,8 @@ const Profile = () => {
                   </CardContent>
                 </Card>
               </div>
-            </TabsContent>
+              </TabsContent>
+            )}
 
             {/* Calendar Tab */}
             <TabsContent value="calendar" className="space-y-6">

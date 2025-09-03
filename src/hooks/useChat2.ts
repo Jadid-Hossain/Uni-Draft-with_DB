@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/context/AuthContext";
+import { uploadImageToCloudinary } from "@/lib/cloudinary";
 
 export interface Conversation {
   id: string;
@@ -12,6 +13,7 @@ export interface Conversation {
   avatar?: string;
   online?: boolean;
   members?: number;
+  participants?: string[]; // Add participants field
 }
 
 export interface Message {
@@ -24,6 +26,8 @@ export interface Message {
   conversation_id?: string;
   sender_name: string;
   created_at: string;
+  image_url?: string; // Add image URL support
+  message_type?: 'text' | 'image' | 'text_with_image'; // Add message type
 }
 
 export const useChat2 = () => {
@@ -69,13 +73,31 @@ export const useChat2 = () => {
         return;
       }
 
-      const flatConversations: Conversation[] = (convs || []).map((conv: any) => ({
+      // 3) Get participants for each conversation
+      const conversationsWithParticipants = await Promise.all(
+        (convs || []).map(async (conv: any) => {
+          const { data: participants } = await supabase
+            .from("conversation_participants2")
+            .select("user_id")
+            .eq("conversation_id", conv.id);
+          
+          const participantIds = (participants || []).map((p: any) => p.user_id);
+          
+          return {
+            ...conv,
+            participants: participantIds
+          };
+        })
+      );
+
+      const flatConversations: Conversation[] = conversationsWithParticipants.map((conv: any) => ({
         id: conv.id,
         name: conv.name,
         type: conv.type as 'direct' | 'group',
         timestamp: new Date(conv.updated_at || conv.created_at),
         unread: 0,
         members: conv.type === 'group' ? 0 : undefined,
+        participants: conv.participants, // Include participants
       }));
 
       // Sort conversations by most recent first
@@ -150,7 +172,9 @@ export const useChat2 = () => {
         sender_id: msg.sender_id,
         conversation_id: msg.conversation_id,
         sender_name: msg.sender_name,
-        created_at: msg.created_at
+        created_at: msg.created_at,
+        image_url: msg.image_url,
+        message_type: msg.message_type || 'text'
       }));
 
       setMessages(prev => ({
@@ -163,8 +187,8 @@ export const useChat2 = () => {
   };
 
   // Send a message
-  const sendMessage = async (content: string, conversationId?: string) => {
-    if (!content.trim() || !user?.id) return false;
+  const sendMessage = async (content: string, conversationId?: string, imageFile?: File) => {
+    if ((!content.trim() && !imageFile) || !user?.id) return false;
 
     let targetConversationId = conversationId || selectedConversation;
     
@@ -203,14 +227,36 @@ export const useChat2 = () => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from("messages2")
-        .insert({
+      let imageUrl = null;
+      let messageType = 'text';
+      
+      // Upload image if provided
+      if (imageFile) {
+        try {
+          imageUrl = await uploadImageToCloudinary(imageFile, 'chat-images');
+          messageType = content.trim() ? 'text_with_image' : 'image';
+        } catch (uploadError) {
+          console.error("Error uploading image:", uploadError);
+          return false;
+        }
+      }
+
+      const messageData: any = {
           conversation_id: targetConversationId,
           sender_id: user.id.toString(),
           sender_name: user.email || user.full_name || "Unknown User",
-          content: content.trim(),
-        })
+        content: content.trim() || '',
+        message_type: messageType,
+      };
+
+      // Add image URL if available
+      if (imageUrl) {
+        messageData.image_url = imageUrl;
+      }
+
+      const { data, error } = await supabase
+        .from("messages2")
+        .insert(messageData)
         .select()
         .single();
 
@@ -627,7 +673,9 @@ export const useChat2 = () => {
             sender_id: newMsg.sender_id,
             conversation_id: newMsg.conversation_id,
             sender_name: newMsg.sender_name,
-            created_at: newMsg.created_at
+            created_at: newMsg.created_at,
+            image_url: newMsg.image_url,
+            message_type: newMsg.message_type || 'text'
           };
 
           setMessages(prev => ({

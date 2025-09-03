@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -16,6 +16,7 @@ import {
   LogOut,
   Shield,
   Search,
+  MoreHorizontal,
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -26,32 +27,36 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
 import NotificationBell from "./NotificationBell";
+import { supabase } from "@/lib/supabase";
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userAvatar, setUserAvatar] = useState<string | null>(null);
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
-  const navigationItems = [
+  // Primary navigation items (always visible)
+  const primaryNavItems = [
     { name: "Clubs", href: "/clubs", icon: Users, requireAuth: true },
     { name: "Events", href: "/events", icon: Calendar, requireAuth: true },
     { name: "Social Feed", href: "/social-feed", icon: MessageSquare, requireAuth: true },
     { name: "Forums", href: "/forum", icon: MessageSquare, requireAuth: true },
-    {
-      name: "Resources",
-      href: "/resources",
-      icon: BookOpen,
-      requireAuth: true,
-    },
-    { name: "Lost & Found", href: "/lost-found", icon: Search, requireAuth: true },
     { name: "Careers", href: "/careers", icon: Briefcase, requireAuth: true },
+    { name: "Chat", href: "/chat2", icon: MessageSquare, requireAuth: true },
+    { name: "Club Dashboard", href: "/club-dashboard", icon: Users, requireAuth: true },
+  ];
+
+  // Secondary navigation items (in dropdown)
+  const secondaryNavItems = [
+    { name: "Resources", href: "/resources", icon: BookOpen, requireAuth: true },
+    { name: "Lost & Found", href: "/lost-found", icon: Search, requireAuth: true },
     { name: "Assistant", href: "/assistant", icon: Bot, requireAuth: true },
   ];
 
   const authenticatedNavItems = [
-    { name: "Chat", href: "/chat2", icon: MessageSquare },
     ...(user?.role !== "admin"
       ? [{ name: "Profile", href: "/profile", icon: User }]
       : []),
@@ -61,7 +66,6 @@ const Header = () => {
     ...(user?.role === "faculty"
       ? [{ name: "Manage Events", href: "/events", icon: Calendar }]
       : []),
-    { name: "Club Dashboard", href: "/club-dashboard", icon: Users },
   ];
 
   const handleNavClick = (item: any, e: React.MouseEvent) => {
@@ -70,6 +74,60 @@ const Header = () => {
       navigate("/signin");
     }
   };
+
+  // Fetch user avatar from database
+  const fetchUserAvatar = async () => {
+    if (!user?.id) return;
+    
+    try {
+      // Try to fetch from users table first
+      let { data, error } = await supabase
+        .from("users")
+        .select("avatar_url")
+        .eq("id", user.id)
+        .single();
+
+      // If that fails, try manual_users table as fallback
+      if (error) {
+        if (error.code === "PGRST116" || error.code === "PGRST204") {
+          const fallbackResult = await supabase
+            .from("manual_users")
+            .select("avatar_url")
+            .eq("id", user.id)
+            .single();
+          
+          data = fallbackResult.data;
+          error = fallbackResult.error;
+        }
+      }
+
+      if (!error && data?.avatar_url) {
+        setUserAvatar(data.avatar_url);
+      }
+    } catch (err) {
+      console.error("Error fetching user avatar:", err);
+    }
+  };
+
+  // Fetch avatar when user changes
+  useEffect(() => {
+    if (user?.id) {
+      fetchUserAvatar();
+    }
+  }, [user?.id]);
+
+  // Expose refresh function for external use (e.g., from Profile page)
+  useEffect(() => {
+    // Listen for custom event to refresh avatar
+    const handleAvatarRefresh = () => {
+      fetchUserAvatar();
+    };
+
+    window.addEventListener('avatar-refreshed', handleAvatarRefresh);
+    return () => {
+      window.removeEventListener('avatar-refreshed', handleAvatarRefresh);
+    };
+  }, []);
 
   const handleLogout = async () => {
     await logout();
@@ -98,7 +156,8 @@ const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-1">
-            {navigationItems.map((item) => (
+            {/* Primary Navigation */}
+            {primaryNavItems.map((item) => (
               <Link
                 key={item.name}
                 to={item.href}
@@ -109,17 +168,70 @@ const Header = () => {
                 <span>{item.name}</span>
               </Link>
             ))}
-            {isAuthenticated &&
-              authenticatedNavItems.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.href}
+
+            {/* More Options Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className="flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200 hover:scale-105 hover:shadow-md"
                 >
-                  <item.icon className="h-4 w-4" />
+                  <MoreHorizontal className="h-4 w-4" />
+                  <span>More</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                className="w-56 bg-background/95 backdrop-blur-lg border border-border/50 shadow-xl"
+                align="center"
+                forceMount
+              >
+                <DropdownMenuLabel className="font-semibold text-foreground">
+                  Additional Features
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuGroup>
+                  {secondaryNavItems.map((item) => (
+                    <DropdownMenuItem key={item.name} asChild>
+                      <Link
+                        to={item.href}
+                        onClick={(e) => handleNavClick(item, e)}
+                        className="flex items-center cursor-pointer"
+                      >
+                        <item.icon className="mr-2 h-4 w-4" />
                   <span>{item.name}</span>
                 </Link>
-              ))}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="font-semibold text-foreground">
+                  Quick Actions
+                </DropdownMenuLabel>
+                <DropdownMenuGroup>
+                  {isAuthenticated && (
+                    <>
+                      {user?.role !== "admin" && (
+                        <DropdownMenuItem asChild>
+                          <Link to="/profile" className="flex items-center cursor-pointer">
+                            <User className="mr-2 h-4 w-4" />
+                            <span>Profile</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+                      {user?.role === "admin" && (
+                        <DropdownMenuItem asChild>
+                          <Link to="/admin" className="flex items-center cursor-pointer">
+                            <Shield className="mr-2 h-4 w-4" />
+                            <span>Admin Dashboard</span>
+                          </Link>
+                        </DropdownMenuItem>
+                      )}
+                    </>
+                  )}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
 
           {/* Auth Section */}
@@ -134,7 +246,7 @@ const Header = () => {
                       className="relative h-10 w-10 rounded-full p-0 hover:scale-105 transition-transform"
                     >
                       <Avatar className="h-10 w-10 border-2 border-primary/20 hover:border-primary/40 transition-colors">
-                        <AvatarImage src="" alt={user?.full_name} />
+                         <AvatarImage src={userAvatar || ""} alt={user?.full_name} />
                         <AvatarFallback className="bg-gradient-primary text-primary-foreground font-semibold">
                           {user?.full_name
                             ?.split(" ")
@@ -146,7 +258,7 @@ const Header = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent
-                    className="w-56 bg-background/95 backdrop-blur-lg border border-border/50"
+                    className="w-56 bg-background/95 backdrop-blur-lg border border-border/50 shadow-xl"
                     align="end"
                     forceMount
                   >
@@ -162,44 +274,11 @@ const Header = () => {
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
-                      {/* <Link to="*" className="flex items-center cursor-pointer">
-                        <User className="mr-2 h-4 w-4" />
-                        <span>Dashboard</span>
-                      </Link> */}
-                    </DropdownMenuItem>
-                    {user?.role !== "admin" && (
-                      <DropdownMenuItem asChild>
-                        <Link
-                          to="/profile"
-                          className="flex items-center cursor-pointer"
-                        >
+                       <Link to="/profile" className="flex items-center cursor-pointer">
                           <User className="mr-2 h-4 w-4" />
                           <span>Profile</span>
                         </Link>
                       </DropdownMenuItem>
-                    )}
-                    {user?.role === "admin" && (
-                      <DropdownMenuItem asChild>
-                        <Link
-                          to="/admin"
-                          className="flex items-center cursor-pointer"
-                        >
-                          <Shield className="mr-2 h-4 w-4" />
-                          <span>Admin Dashboard</span>
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
-                    {user?.role === "faculty" && (
-                      <DropdownMenuItem asChild>
-                        <Link
-                          to="/events"
-                          className="flex items-center cursor-pointer"
-                        >
-                          <Calendar className="mr-2 h-4 w-4" />
-                          <span>Manage Events</span>
-                        </Link>
-                      </DropdownMenuItem>
-                    )}
                     <DropdownMenuItem>
                       <Settings className="mr-2 h-4 w-4" />
                       <span>Settings</span>
@@ -257,7 +336,8 @@ const Header = () => {
         {mobileMenuOpen && (
           <div className="md:hidden py-4 border-t border-border/50 animate-fade-in bg-background/95 backdrop-blur-lg">
             <div className="flex flex-col space-y-2">
-              {navigationItems.map((item) => (
+              {/* Primary Navigation */}
+              {primaryNavItems.map((item) => (
                 <Link
                   key={item.name}
                   to={item.href}
@@ -271,24 +351,59 @@ const Header = () => {
                   <span>{item.name}</span>
                 </Link>
               ))}
-              {isAuthenticated &&
-                authenticatedNavItems.map((item) => (
+
+              {/* Secondary Navigation */}
+              <div className="px-4 py-2">
+                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Additional Features
+                </h3>
+                <div className="space-y-1">
+                  {secondaryNavItems.map((item) => (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className="flex items-center space-x-3 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200"
+                      onClick={(e) => {
+                        handleNavClick(item, e);
+                        setMobileMenuOpen(false);
+                      }}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.name}</span>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+
+              {/* Authenticated Items */}
+              {isAuthenticated && (
+                <div className="px-4 py-2">
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                    Quick Actions
+                  </h3>
+                  <div className="space-y-1">
+                    {authenticatedNavItems.map((item) => (
                   <Link
                     key={item.name}
                     to={item.href}
-                    className="flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200"
+                        className="flex items-center space-x-3 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-all duration-200"
                     onClick={() => setMobileMenuOpen(false)}
                   >
                     <item.icon className="h-4 w-4" />
                     <span>{item.name}</span>
                   </Link>
                 ))}
+                  </div>
+                </div>
+              )}
+
+              {/* User Section */}
               <div className="pt-3 mt-3 border-t border-border/50 flex flex-col space-y-2">
                 {isAuthenticated ? (
                   <>
                     <div className="flex items-center space-x-3 px-4 py-2">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src="" alt={user?.full_name} />
+                         <AvatarImage src={userAvatar || ""} alt={user?.full_name} />
                         <AvatarFallback className="bg-gradient-primary text-primary-foreground text-xs">
                           {user?.full_name
                             ?.split(" ")

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/lib/supabase";
+import Layout from "@/components/Layout";
 
 interface Conversation {
   id: string;
@@ -362,7 +363,8 @@ const Chat = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-80px)] grid grid-cols-12 gap-4 p-4">
+    <Layout>
+      <div className="h-[calc(100vh-80px)] grid grid-cols-12 gap-4 p-4">
       {/* Conversations sidebar */}
       <div className="col-span-12 md:col-span-3 border rounded-lg overflow-hidden">
         <div className="p-3 border-b font-semibold flex items-center justify-between">
@@ -524,7 +526,8 @@ const Chat = () => {
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </Layout>
   );
 };
 

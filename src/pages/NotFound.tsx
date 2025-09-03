@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import Layout from "@/components/Layout";
 
 const NotFound = () => {
   const location = useLocation();
@@ -12,7 +13,8 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-indigo-100 via-gray-100 to-indigo-200 p-6">
+    <Layout>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-indigo-100 via-gray-100 to-indigo-200 p-6">
       {/* Animated Spinner SVG */}
       <div className="mb-8">
         <svg
@@ -48,7 +50,8 @@ const NotFound = () => {
           Back to Home
         </a>
       </div>
-    </div>
+      </div>
+    </Layout>
   );
 };
 
